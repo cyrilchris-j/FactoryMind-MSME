@@ -188,11 +188,11 @@ router.get('/search', (req: Request, res: Response) => {
   const q = (req.query.q as string || '').toLowerCase();
   if (!q) { res.json([]); return; }
   const results = [
-    ...machines.filter((m) => m.name.toLowerCase().includes(q)).map((m) => ({ type: 'machine', ...m })),
-    ...workers.filter((w) => w.name.toLowerCase().includes(q)).map((w) => ({ type: 'worker', ...w })),
-    ...productionOrders.filter((o) => o.orderNumber.toLowerCase().includes(q) || o.product.toLowerCase().includes(q)).slice(0, 5).map((o) => ({ type: 'order', ...o })),
-    ...inventory.filter((i) => i.name.toLowerCase().includes(q)).map((i) => ({ type: 'inventory', ...i })),
-    ...customers.filter((c) => c.name.toLowerCase().includes(q)).map((c) => ({ type: 'customer', ...c })),
+    ...machines.filter((m) => m.name.toLowerCase().includes(q)).map((m) => ({ ...m, type: 'machine' })),
+    ...workers.filter((w) => w.name.toLowerCase().includes(q)).map((w) => ({ ...w, type: 'worker' })),
+    ...productionOrders.filter((o) => o.orderNumber.toLowerCase().includes(q) || o.product.toLowerCase().includes(q)).slice(0, 5).map((o) => ({ ...o, type: 'order' })),
+    ...inventory.filter((i) => i.name.toLowerCase().includes(q)).map((i) => ({ ...i, type: 'inventory' })),
+    ...customers.filter((c) => c.name.toLowerCase().includes(q)).map((c) => ({ ...c, type: 'customer' })),
   ].slice(0, 10);
   res.json(results);
 });
