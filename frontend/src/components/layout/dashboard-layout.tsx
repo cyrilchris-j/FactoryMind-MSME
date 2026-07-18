@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Sidebar } from './sidebar';
 import { Header } from './header';
 import { X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
