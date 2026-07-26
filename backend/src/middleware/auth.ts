@@ -40,8 +40,8 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     req.departmentId = profile.departmentId as string
 
     next()
-  } catch (err) {
+  } catch (err: any) {
     console.error('Auth error:', err)
-    res.status(401).json({ error: 'Unauthorized: invalid token' })
+    res.status(401).json({ error: `Unauthorized: ${err.message}` })
   }
 }
