@@ -39,18 +39,17 @@ export default function ManagersPage() {
   const fetchManagers = useCallback(async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'users'), where('role', '==', 'MANAGER'));
-      const snap = await getDocs(q);
-      const data = snap.docs.map(d => ({
+      const res: any = await apiGet('/api/managers');
+      const data = (res?.data ?? []).map((d: any) => ({
         id: d.id,
-        full_name: d.data().name || '',
-        email: d.data().email || '',
-        role: d.data().role || '',
-        department: d.data().department || 'Unassigned',
-        created_at: d.data().createdAt || '',
+        full_name: d.name || '',
+        email: d.email || '',
+        role: d.role || '',
+        department: d.department || 'Unassigned',
+        created_at: d.createdAt || '',
       }));
       const filtered = search
-        ? data.filter(m => m.full_name.toLowerCase().includes(search.toLowerCase()))
+        ? data.filter((m: any) => m.full_name.toLowerCase().includes(search.toLowerCase()))
         : data;
       setManagers(filtered);
     } catch (err) {

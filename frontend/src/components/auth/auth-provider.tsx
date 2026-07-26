@@ -39,7 +39,26 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+import { apiGet } from '@/lib/api'
+
 async function fetchProfile(uid: string): Promise<AppUser | null> {
+  try {
+    const res: any = await apiGet('/auth/me')
+    if (res && res.id) {
+      return {
+        id: res.id,
+        email: res.email,
+        name: res.name,
+        role: res.role as AppUser['role'],
+        department: res.department ?? undefined,
+        departmentId: res.departmentId ?? undefined,
+        factoryId: res.factoryId ?? undefined,
+      }
+    }
+  } catch (err: any) {
+    console.warn("Backend profile fetch failed, trying direct Firestore:", err);
+  }
+
   try {
     const docSnap = await getDoc(doc(db, 'users', uid))
     if (!docSnap.exists()) return null

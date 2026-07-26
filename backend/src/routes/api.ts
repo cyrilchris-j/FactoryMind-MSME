@@ -118,6 +118,15 @@ router.get('/workers', async (req: AuthRequest, res: Response) => {
   res.json({ data: all, total: all.length, page: 1, limit: all.length })
 })
 
+router.get('/managers', async (req: AuthRequest, res: Response) => {
+  const snap = await adminDb.collection('users')
+    .where('factoryId', '==', req.factoryId!)
+    .where('role', '==', 'MANAGER')
+    .get()
+  const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  res.json({ data: all })
+})
+
 router.get('/production', async (req: AuthRequest, res: Response) => {
   const { status, page = '1', limit = '20' } = req.query
   let query: any = adminDb.collection('production')
