@@ -20,13 +20,15 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const [role, setRole] = useState<'OWNER' | 'MANAGER'>('OWNER');
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
-      const result = await register(email, password, name, 'OWNER', factoryId || `fact_${Math.random().toString(36).substring(2, 9)}`);
+      const result = await register(email, password, name, role, factoryId || 'factory-cyril-001');
       if (result.error) {
         setError(result.error);
         return;
@@ -85,6 +87,34 @@ export default function RegisterPage() {
             )}
 
             <form onSubmit={handleRegister} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Account Type / Role</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRole('OWNER')}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      role === 'OWNER'
+                        ? 'border-primary bg-primary/10 text-primary font-bold shadow-sm'
+                        : 'border-border text-muted hover:bg-background'
+                    }`}
+                  >
+                    👑 Factory Owner
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole('MANAGER')}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      role === 'MANAGER'
+                        ? 'border-primary bg-primary/10 text-primary font-bold shadow-sm'
+                        : 'border-border text-muted hover:bg-background'
+                    }`}
+                  >
+                    👷 Manager
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <div className="relative">
