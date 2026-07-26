@@ -1,4 +1,6 @@
 import admin from 'firebase-admin'
+import dotenv from 'dotenv'
+dotenv.config()
 
 function getFirebaseAdmin() {
   if (admin.apps.length > 0) return admin
@@ -7,19 +9,23 @@ function getFirebaseAdmin() {
   const projectId = process.env.FIREBASE_PROJECT_ID || 'factorymind-msme'
 
   if (serviceAccountBase64) {
-    const decoded = JSON.parse(
-      Buffer.from(serviceAccountBase64, 'base64').toString('utf-8')
-    )
-    admin.initializeApp({
-      credential: admin.credential.cert(decoded as admin.ServiceAccount),
-    })
+    try {
+      const decoded = JSON.parse(
+        Buffer.from(serviceAccountBase64, 'base64').toString('utf-8')
+      )
+      if (decoded.private_key) {
+        decoded.private_key = decoded.private_key.replace(/\\n/g, '\n')
+      }
+      admin.initializeApp({
+        credential: admin.credential.cert(decoded as admin.ServiceAccount),
+      })
+      console.log('✅ Firebase Admin initialized with Service Account successfully')
+    } catch (err) {
+      console.error('❌ Failed to initialize Firebase Admin with Service Account:', err)
+      admin.initializeApp({ projectId })
+    }
   } else {
-    // No service account — initialize with just project ID.
-    // Firestore will still work for reads/writes using the client SDK approach,
-    // but token verification is handled via Firebase REST API instead.
-    admin.initializeApp({
-      projectId,
-    })
+    admin.initializeApp({ projectId })
   }
 
   return admin

@@ -42,6 +42,6 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     next()
   } catch (err: any) {
     console.error('Auth error:', err)
-    res.status(401).json({ error: `Unauthorized: ${err.message}` })
+    res.status(401).json({ error: 'Unauthorized: invalid token' })
   }
 }
