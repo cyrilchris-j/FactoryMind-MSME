@@ -90,10 +90,10 @@ router.get('/machines', async (req: AuthRequest, res: Response) => {
   const { status, page = '1', limit = '20' } = req.query
   let query: any = adminDb.collection('machines')
     .where('factoryId', '==', req.factoryId!)
-    .orderBy('machineCode', 'asc')
   if (status) query = query.where('status', '==', status)
   const snap = await query.get()
   const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  all.sort((a: any, b: any) => (a.machineCode || '').localeCompare(b.machineCode || ''))
   const p = parseInt(page as string)
   const l = parseInt(limit as string)
   res.json({ data: all.slice((p - 1) * l, p * l), total: all.length, page: p, limit: l })
@@ -482,8 +482,6 @@ router.get('/search', async (req: AuthRequest, res: Response) => {
 
   const prodSnap = await adminDb.collection('production')
     .where('factoryId', '==', req.factoryId!)
-    .orderBy('date', 'desc')
-    .limit(50)
     .get()
   prodSnap.docs.forEach(d => {
     const data = d.data()
