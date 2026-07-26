@@ -5,47 +5,37 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Factory, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Factory, Mail, Lock, Eye, EyeOff, AlertCircle, User } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
 import Link from 'next/link';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
-  const { login, user } = useAuth();
+  const { register } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState('cyrilchrisj@gmail.com');
-  const [password, setPassword] = useState('MaxVerstappen33');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [factoryId, setFactoryId] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
-      const result = await login(email, password);
+      const result = await register(email, password, name, 'OWNER', factoryId || `fact_${Math.random().toString(36).substring(2, 9)}`);
       if (result.error) {
         setError(result.error);
         return;
       }
-      // Middleware will handle the redirect based on role.
-      // We push to /dashboard which middleware redirects to the right portal.
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please try again.');
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fillDemo = (role: 'owner' | 'manager') => {
-    if (role === 'owner') {
-      setEmail('cyrilchrisj@gmail.com');
-      setPassword('MaxVerstappen33');
-    } else {
-      setEmail('production@precisionforgings.com');
-      setPassword('demo1234');
     }
   };
 
@@ -67,47 +57,12 @@ export default function LoginPage() {
           </div>
           <h1 className="text-4xl font-bold mb-4">FactoryMind AI</h1>
           <p className="text-xl text-white/80 text-center max-w-md">
-            AI-Powered Decision Intelligence for Modern Manufacturing
+            Join the Industrial AI Revolution
           </p>
-          <div className="mt-12 grid grid-cols-3 gap-8 text-center">
-            <div>
-              <div className="text-3xl font-bold">50+</div>
-              <div className="text-sm text-white/60">Machines</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold">6</div>
-              <div className="text-sm text-white/60">Departments</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold">Real-Time</div>
-              <div className="text-sm text-white/60">AI Insights</div>
-            </div>
-          </div>
-
-          {/* Demo Credentials */}
-          <div className="mt-10 w-full max-w-sm">
-            <p className="text-white/50 text-xs text-center mb-3 uppercase tracking-wider">Demo Accounts</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => fillDemo('owner')}
-                className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg p-3 text-left transition-colors"
-              >
-                <p className="text-xs text-white/60 mb-0.5">Factory Owner</p>
-                <p className="text-sm font-semibold text-white">Mr. Kumar</p>
-              </button>
-              <button
-                onClick={() => fillDemo('manager')}
-                className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg p-3 text-left transition-colors"
-              >
-                <p className="text-xs text-white/60 mb-0.5">Manager</p>
-                <p className="text-sm font-semibold text-white">Rajesh (Production)</p>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Right Side - Login Form */}
+      {/* Right Side - Register Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
@@ -118,8 +73,8 @@ export default function LoginPage() {
 
           <div className="bg-white rounded-xl shadow-sm p-8">
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-foreground mb-2">Welcome Back</h2>
-              <p className="text-muted">Sign in to your factory dashboard</p>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Create an Account</h2>
+              <p className="text-muted">Register your factory to get started</p>
             </div>
 
             {error && (
@@ -129,7 +84,24 @@ export default function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-5">
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted w-5 h-5" />
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Mr. Kumar"
+                    className="pl-10"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
                 <div className="relative">
@@ -142,6 +114,22 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="factoryId">Factory / Company Name</Label>
+                <div className="relative">
+                  <Factory className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted w-5 h-5" />
+                  <Input
+                    id="factoryId"
+                    type="text"
+                    placeholder="Precision Forgings"
+                    className="pl-10"
+                    value={factoryId}
+                    onChange={(e) => setFactoryId(e.target.value)}
                     disabled={isLoading}
                   />
                 </div>
@@ -182,16 +170,16 @@ export default function LoginPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                     </svg>
-                    Signing in...
+                    Creating account...
                   </span>
-                ) : 'Sign In'}
+                ) : 'Register Account'}
               </Button>
             </form>
 
             <div className="mt-6 text-center">
               <p className="text-muted text-sm">
-                Don't have an account?{' '}
-                <Link href="/register" className="text-primary font-medium hover:underline">Register your factory</Link>
+                Already have an account?{' '}
+                <Link href="/login" className="text-primary font-medium hover:underline">Sign in</Link>
               </p>
             </div>
           </div>

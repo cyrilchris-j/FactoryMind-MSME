@@ -14,7 +14,7 @@ function getFirebaseAdmin() {
     })
   } else {
     admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
+      projectId: 'factorymind-msme',
     })
   }
 

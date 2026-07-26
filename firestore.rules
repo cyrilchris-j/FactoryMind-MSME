@@ -8,15 +8,19 @@ service cloud.firestore {
     }
 
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) 
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data 
+        : null;
     }
 
     function role() {
-      return getUserData().role;
+      let data = getUserData();
+      return data != null ? data.role : null;
     }
 
     function userFactoryId() {
-      return getUserData().factoryId;
+      let data = getUserData();
+      return data != null ? data.factoryId : null;
     }
 
     function isOwner() {
