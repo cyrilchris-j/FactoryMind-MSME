@@ -1,0 +1,141 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // === HELPERS ===
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function role() {
+      return getUserData().role;
+    }
+
+    function userFactoryId() {
+      return getUserData().factoryId;
+    }
+
+    function isOwner() {
+      return isAuth() && role() == 'OWNER';
+    }
+
+    function isManager() {
+      return isAuth() && role() == 'MANAGER';
+    }
+
+    function sameFactoryAsDoc() {
+      return isAuth() && userFactoryId() == resource.data.factoryId;
+    }
+
+    function sameFactoryAsRequest() {
+      return isAuth() && userFactoryId() == request.resource.data.factoryId;
+    }
+
+    function factoryDataRead() {
+      return sameFactoryAsDoc();
+    }
+
+    function factoryDataCreate() {
+      return sameFactoryAsRequest();
+    }
+
+    function factoryDataUpdate() {
+      return isAuth()
+        && userFactoryId() == resource.data.factoryId
+        && request.resource.data.factoryId == resource.data.factoryId;
+    }
+
+    function factoryDataDelete() {
+      return isOwner() && sameFactoryAsDoc();
+    }
+
+    // === USERS ===
+    // OWNER can read all users in their factory.
+    // MANAGER (and owner) can read/write their own document.
+    match /users/{userId} {
+      allow read: if isAuth() && (
+        request.auth.uid == userId
+        || (isOwner()
+            && userFactoryId()
+                == get(/databases/$(database)/documents/users/$(userId)).data.factoryId)
+      );
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId;
+      allow delete: if request.auth.uid == userId;
+    }
+
+    // === FACTORIES ===
+    match /factories/{fid} {
+      allow read: if isAuth() && userFactoryId() == fid;
+      allow write: if isOwner() && userFactoryId() == fid;
+    }
+
+    // === MACHINES ===
+    match /machines/{doc} {
+      allow read: if factoryDataRead();
+      allow create: if factoryDataCreate();
+      allow update: if factoryDataUpdate();
+      allow delete: if factoryDataDelete();
+    }
+
+    // === WORKERS ===
+    match /workers/{doc} {
+      allow read: if factoryDataRead();
+      allow create: if factoryDataCreate();
+      allow update: if factoryDataUpdate();
+      allow delete: if factoryDataDelete();
+    }
+
+    // === PRODUCTION ===
+    match /production/{doc} {
+      allow read: if factoryDataRead();
+      allow create: if factoryDataCreate();
+      allow update: if factoryDataUpdate();
+      allow delete: if factoryDataDelete();
+    }
+
+    // === INVENTORY ===
+    match /inventory/{doc} {
+      allow read: if factoryDataRead();
+      allow create: if factoryDataCreate();
+      allow update: if factoryDataUpdate();
+      allow delete: if factoryDataDelete();
+    }
+
+    // === MAINTENANCE ===
+    match /maintenance/{doc} {
+      allow read: if factoryDataRead();
+      allow create: if factoryDataCreate();
+      allow update: if factoryDataUpdate();
+      allow delete: if factoryDataDelete();
+    }
+
+    // === ENERGY ===
+    match /energy/{doc} {
+      allow read: if factoryDataRead();
+      allow create: if factoryDataCreate();
+      allow update: if factoryDataUpdate();
+      allow delete: if factoryDataDelete();
+    }
+
+    // === SALES ===
+    match /sales/{doc} {
+      allow read: if factoryDataRead();
+      allow create: if factoryDataCreate();
+      allow update: if factoryDataUpdate();
+      allow delete: if factoryDataDelete();
+    }
+
+    // === NOTIFICATIONS ===
+    match /notifications/{doc} {
+      allow read: if factoryDataRead();
+      allow create: if factoryDataCreate();
+      allow update: if factoryDataUpdate();
+      allow delete: if factoryDataDelete();
+    }
+  }
+}

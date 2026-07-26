@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #F8F9FA;
+  --color-foreground: #1A1A1A;
+  --color-primary: #2563EB;
+  --color-secondary: #4F6D7A;
+  --color-accent: #2E8B57;
+  --color-warning: #F4B400;
+  --color-danger: #D93025;
+  --color-border: #E5E7EB;
+  --color-card: #FFFFFF;
+  --color-muted: #6B7280;
+  --font-heading: 'Poppins', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-numbers: 'IBM Plex Sans', sans-serif;
+  --radius-default: 12px;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+.font-numbers {
+  font-family: var(--font-numbers);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+/* Chart tooltip */
+.recharts-tooltip-wrapper {
+  outline: none;
+}
