@@ -62,12 +62,11 @@ async function getInventoryContext(factoryId: string) {
 async function getMaintenanceContext(factoryId: string) {
   const snap = await adminDb.collection('maintenance')
     .where('factoryId', '==', factoryId)
-    .where('status', '!=', 'COMPLETED')
     .get()
 
   if (snap.empty) return null
 
-  const data = snap.docs.map(d => d.data())
+  const data = snap.docs.map(d => d.data()).filter((i: any) => i.status !== 'COMPLETED')
 
   return {
     activeIssuesCount: data.length,
