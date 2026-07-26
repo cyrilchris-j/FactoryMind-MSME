@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
 import { apiGet } from '@/lib/api';
-
+import { exportToExcel } from '@/utils/excel/exporter';
 interface ProductionRecord {
   id: string;
   date: string;
@@ -92,6 +92,9 @@ export default function ProductionPage() {
             <Button variant="outline" onClick={fetchProduction} disabled={loading} className="border-border">
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
+            </Button>
+            <Button variant="outline" onClick={() => exportToExcel(records, 'Production_Report')} disabled={loading || records.length === 0} className="border-border">
+              Export Excel
             </Button>
             <Button className="bg-primary hover:bg-primary/90 text-white">
               <Plus className="w-4 h-4 mr-2" />

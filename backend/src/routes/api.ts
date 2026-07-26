@@ -2,8 +2,19 @@ import { Router, Response } from 'express'
 import { adminDb } from '../lib/firebase-admin'
 import { requireAuth, AuthRequest } from '../middleware/auth'
 import { chatWithAI, getWeeklySummary, getDailyBriefing } from '../services/ai'
+import { z } from 'zod'
 
-
+const productionSchema = z.object({
+  date: z.string(),
+  shift: z.string(),
+  machineCode: z.string(),
+  productName: z.string(),
+  targetQuantity: z.number().min(0),
+  actualQuantity: z.number().min(0),
+  rejectedQuantity: z.number().optional().default(0),
+  downtimeMinutes: z.number().optional().default(0),
+  notes: z.string().optional()
+})
 
 const router = Router()
 
@@ -168,11 +179,13 @@ router.post('/production/batch', async (req: AuthRequest, res: Response) => {
 })
 
 router.post('/production', async (req: AuthRequest, res: Response) => {
-  const { date, shift, machineCode, productName, targetQuantity, actualQuantity, rejectedQuantity, downtimeMinutes, notes } = req.body
-  if (!date || !shift || !machineCode || !productName || !targetQuantity || !actualQuantity) {
-    res.status(400).json({ error: 'Missing required fields' })
+  const parsed = productionSchema.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.errors })
     return
   }
+  const { date, shift, machineCode, productName, targetQuantity, actualQuantity, rejectedQuantity, downtimeMinutes, notes } = parsed.data
+
   try {
     const docRef = await adminDb.collection('production').add({
       factoryId: req.factoryId,

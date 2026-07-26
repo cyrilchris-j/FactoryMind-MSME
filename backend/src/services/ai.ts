@@ -218,8 +218,23 @@ Provide your response in strict JSON format with the following keys:
 }
 Ensure the output is ONLY valid JSON. No markdown backticks.`
 
+  const tools: any = [{
+    functionDeclarations: [{
+      name: "getMachineStatus",
+      description: "Get the current running status and health score of a machine",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          machineCode: { type: "STRING", description: "The ID or code of the machine" }
+        },
+        required: ["machineCode"]
+      }
+    }]
+  }];
+
   const model = genAI.getGenerativeModel({
     model: 'gemini-1.5-pro',
+    tools,
     generationConfig: {
       temperature: 0.1,
       responseMimeType: 'application/json',
