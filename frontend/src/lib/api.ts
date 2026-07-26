@@ -5,6 +5,7 @@ import { auth } from './firebase'
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 
 export async function getAuthToken(): Promise<string> {
+  await auth.authStateReady()
   const user = auth.currentUser
   if (!user) throw new Error('Not authenticated')
   return user.getIdToken()

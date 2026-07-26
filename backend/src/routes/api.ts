@@ -47,10 +47,10 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
     const notificationsSnap = await adminDb.collection('notifications')
       .where('factoryId', '==', factoryId)
       .where('isRead', '==', false)
-      .orderBy('createdAt', 'desc')
-      .limit(5)
       .get()
-    const notifications = notificationsSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+    let notifications = notificationsSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+    notifications.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    notifications = notifications.slice(0, 5)
 
     const utilization = totalMachines > 0 ? Math.round((runningMachines / totalMachines) * 100) : 0
     const avgHealth = machines.length > 0
@@ -122,13 +122,13 @@ router.get('/production', async (req: AuthRequest, res: Response) => {
   const { status, page = '1', limit = '20' } = req.query
   let query: any = adminDb.collection('production')
     .where('factoryId', '==', req.factoryId!)
-    .orderBy('date', 'desc')
   if (status) query = query.where('status', '==', status)
   if (req.role === 'MANAGER' && req.departmentId) {
     query = query.where('departmentId', '==', req.departmentId)
   }
   const snap = await query.get()
   const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  all.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
   const p = parseInt(page as string)
   const l = parseInt(limit as string)
   const total = all.length
@@ -232,10 +232,10 @@ router.get('/maintenance', async (req: AuthRequest, res: Response) => {
   const { status, page = '1', limit = '20' } = req.query
   let query: any = adminDb.collection('maintenance')
     .where('factoryId', '==', req.factoryId!)
-    .orderBy('reportedDate', 'desc')
   if (status) query = query.where('status', '==', status)
   const snap = await query.get()
   const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  all.sort((a: any, b: any) => new Date(b.reportedDate).getTime() - new Date(a.reportedDate).getTime())
   const p = parseInt(page as string)
   const l = parseInt(limit as string)
   res.json({
@@ -251,10 +251,10 @@ router.get('/maintenance', async (req: AuthRequest, res: Response) => {
 router.get('/energy', async (req: AuthRequest, res: Response) => {
   const snap = await adminDb.collection('energy')
     .where('factoryId', '==', req.factoryId!)
-    .orderBy('date', 'desc')
-    .limit(30)
     .get()
-  const records = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  let records = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  records.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  records = records.slice(0, 30)
   const latest = records[0] || null
   res.json({
     records,
@@ -272,9 +272,9 @@ router.get('/sales', async (req: AuthRequest, res: Response) => {
   const { page = '1', limit = '20' } = req.query
   const snap = await adminDb.collection('sales')
     .where('factoryId', '==', req.factoryId!)
-    .orderBy('orderDate', 'desc')
     .get()
   const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  all.sort((a: any, b: any) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
   const p = parseInt(page as string)
   const l = parseInt(limit as string)
   const totalRevenue = all.reduce((s: number, o: any) => s + (o.orderValue || 0), 0)
@@ -294,10 +294,10 @@ router.get('/sales', async (req: AuthRequest, res: Response) => {
 router.get('/notifications', async (req: AuthRequest, res: Response) => {
   const snap = await adminDb.collection('notifications')
     .where('factoryId', '==', req.factoryId!)
-    .orderBy('createdAt', 'desc')
-    .limit(50)
     .get()
-  const list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  let list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  list.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  list = list.slice(0, 50)
   res.json(list)
 })
 

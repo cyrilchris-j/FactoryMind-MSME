@@ -103,9 +103,7 @@ export default function DashboardPage() {
     const notifQ = query(
       collection(db, 'notifications'),
       where('factoryId', '==', user.factoryId),
-      where('isRead', '==', false),
-      orderBy('createdAt', 'desc'),
-      limit(5)
+      where('isRead', '==', false)
     )
     const unsubNotif = onSnapshot(notifQ, () => {
       setRealtimeUpdates(c => c + 1)
