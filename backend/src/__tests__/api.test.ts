@@ -5,9 +5,19 @@ import apiRoutes from '../routes/api';
 // Mock Firebase Admin
 jest.mock('../lib/firebase-admin', () => ({
   adminDb: {
-    collection: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    get: jest.fn().mockResolvedValue({ docs: [] })
+    collection: jest.fn(() => {
+      const ref: any = {
+        where: jest.fn(() => ref),
+        get: jest.fn().mockResolvedValue({ docs: [] }),
+        doc: jest.fn(() => ({
+          get: jest.fn().mockResolvedValue({
+            exists: false,
+            data: () => null
+          })
+        }))
+      };
+      return ref;
+    })
   }
 }));
 
