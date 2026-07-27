@@ -25,17 +25,19 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/auth-provider';
 
+import { ClipboardList } from 'lucide-react';
+
 const navigation = [
   { name: 'Dashboard', href: '/owner/dashboard', icon: LayoutDashboard },
   { name: 'AI Copilot', href: '/owner/ai-copilot', icon: Bot },
+  { name: 'Products & BOM', href: '/owner/products', icon: ClipboardList },
   { name: 'Production', href: '/owner/production', icon: FactoryIcon },
   { name: 'Inventory', href: '/owner/inventory', icon: Package },
   { name: 'Maintenance', href: '/owner/maintenance', icon: Wrench },
   { name: 'Energy', href: '/owner/energy', icon: Zap },
-  { name: 'Sales', href: '/owner/sales', icon: ShoppingCart },
+  { name: 'Sales & Orders', href: '/owner/sales', icon: ShoppingCart },
   { name: 'Workers', href: '/owner/workers', icon: Users },
   { name: 'Analytics', href: '/owner/analytics', icon: BarChart3 },
-  { name: 'Reports', href: '/owner/reports', icon: FileText },
   { name: 'Notifications', href: '/owner/notifications', icon: Bell },
   { name: 'Managers', href: '/owner/managers', icon: UserCog },
 ];

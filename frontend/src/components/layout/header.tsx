@@ -14,7 +14,7 @@ interface HeaderProps {
   onMobileMenuClick?: () => void;
 }
 
-export function Header({ factoryName = 'Kumar Manufacturing Ltd.', onMobileMenuClick }: HeaderProps) {
+export function Header({ factoryName = 'Prime Auto Components', onMobileMenuClick }: HeaderProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [profileOpen, setProfileOpen] = useState(false);

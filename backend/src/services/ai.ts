@@ -156,6 +156,75 @@ async function getWorkforceContext(factoryId: string) {
   }
 }
 
+async function getProductAndBOMContext(factoryId: string) {
+  const prodSnap = await adminDb.collection('products')
+    .where('factoryId', '==', factoryId)
+    .limit(5)
+    .get()
+  if (prodSnap.empty) return null
+
+  const products = prodSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  const productIds = products.map((p: any) => p.id)
+
+  const bomSnap = await adminDb.collection('bill_of_materials')
+    .where('factoryId', '==', factoryId)
+    .get()
+  const bomItems = bomSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+
+  const componentIds = [...new Set(bomItems.map((b: any) => b.componentId))]
+  const compSnap = componentIds.length > 0
+    ? await adminDb.collection('components')
+        .where('factoryId', '==', factoryId)
+        .get()
+    : { docs: [] }
+  const componentMap: any = {}
+  compSnap.docs.forEach((d: any) => { componentMap[d.id] = { id: d.id, ...d.data() } })
+
+  const productBOMs = products.map((p: any) => {
+    const productBOM = bomItems.filter((b: any) => b.productId === p.id)
+    const compDetails = productBOM.map((b: any) => {
+      const comp = componentMap[b.componentId]
+      return {
+        componentName: comp?.componentName || 'Unknown',
+        requiredQty: b.quantityRequired,
+        currentStock: comp?.currentStock || 0,
+        reserved: comp?.reservedStock || 0,
+      }
+    })
+    return {
+      productName: p.productName,
+      productCode: p.productCode,
+      bomComponents: compDetails,
+    }
+  })
+
+  return {
+    products: productBOMs,
+    totalProducts: products.length,
+  }
+}
+
+async function getCustomerOrdersContext(factoryId: string) {
+  const snap = await adminDb.collection('customer_orders')
+    .where('factoryId', '==', factoryId)
+    .get()
+  if (snap.empty) return null
+
+  const data = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  return {
+    totalOrders: data.length,
+    activeOrders: data.filter((o: any) => o.status !== 'COMPLETED').length,
+    orders: data.map((o: any) => ({
+      orderNumber: o.orderNumber,
+      customer: o.customerName,
+      product: o.productName,
+      quantity: o.quantity,
+      completed: o.completedQuantity,
+      status: o.status,
+    })),
+  }
+}
+
 async function gatherContext(prompt: string, factoryId: string) {
   const lowerPrompt = prompt.toLowerCase()
   const context: any = {}
@@ -184,6 +253,14 @@ async function gatherContext(prompt: string, factoryId: string) {
     context.workforce = await getWorkforceContext(factoryId)
   }
 
+  if (lowerPrompt.includes('bom') || lowerPrompt.includes('product') || lowerPrompt.includes('component') || lowerPrompt.includes('bill of material') || lowerPrompt.includes('brake') || lowerPrompt.includes('shortage') || lowerPrompt.includes('constraint') || lowerPrompt.includes('buildable') || lowerPrompt.includes('material')) {
+    context.products = await getProductAndBOMContext(factoryId)
+  }
+
+  if (lowerPrompt.includes('order') || lowerPrompt.includes('customer') || lowerPrompt.includes('feasibility') || lowerPrompt.includes('fulfilment') || lowerPrompt.includes('delivery')) {
+    context.customerOrders = await getCustomerOrdersContext(factoryId)
+  }
+
   return context
 }
 
@@ -199,23 +276,30 @@ export async function chatWithAI(
 
   const factoryContext = await gatherContext(prompt, factoryId)
 
-  const systemPrompt = `You are FactoryMind AI, an industrial decision-support assistant for manufacturing MSMEs.
-Analyze ONLY the factory data provided. Do not invent facts.
-If there is insufficient data, clearly say that more data is required.
+  const systemPrompt = `You are FactoryMind AI, a manufacturing decision-support assistant for an automotive component MSME called Prime Auto Components.
+
+The factory manufactures Automotive Brake Assemblies.
+
+IMPORTANT RULES:
+- Analyze ONLY the factory data provided below. Do NOT invent any operational facts, numbers, or metrics.
+- Math, calculations, and quantitative analysis should come from the application logic, not from AI inference.
+- If data is insufficient, state that clearly.
+- For causality, use wording like "likely contributing factors include..." when causality is inferred.
+- Keep explanations practical and actionable for a factory owner.
 
 Current Factory Data Context:
 ${JSON.stringify(factoryContext, null, 2)}
 
-Provide your response in strict JSON format with the following keys:
+Provide your response in strict JSON format with these keys:
 {
-  "summary": "Direct answer to the user's question.",
+  "summary": "Direct, practical answer to the owner's question based on data.",
   "key_findings": ["Finding 1", "Finding 2"],
   "risk_level": "LOW|MEDIUM|HIGH|CRITICAL",
   "recommended_actions": ["Action 1", "Action 2"],
   "data_sources": ["Data Source 1", "Data Source 2"],
   "confidence": 85
 }
-Ensure the output is ONLY valid JSON. No markdown backticks.`
+Ensure output is ONLY valid JSON. No markdown backticks.`
 
   const tools: any = [{
     functionDeclarations: [{

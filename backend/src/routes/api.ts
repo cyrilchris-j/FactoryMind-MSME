@@ -493,4 +493,320 @@ router.get('/search', async (req: AuthRequest, res: Response) => {
   res.json(results.slice(0, 10))
 })
 
+// ── PRODUCTS ──────────────────────────────────────────────────────────────
+router.get('/products', async (req: AuthRequest, res: Response) => {
+  const snap = await adminDb.collection('products')
+    .where('factoryId', '==', req.factoryId!)
+    .get()
+  const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  res.json({ data: all, total: all.length })
+})
+
+router.get('/products/:id', async (req: AuthRequest, res: Response) => {
+  const doc = await adminDb.collection('products').doc(req.params.id as string).get()
+  if (!doc.exists) { res.status(404).json({ error: 'Product not found' }); return }
+
+  const product = { id: doc.id, ...doc.data() }
+
+  const bomSnap = await adminDb.collection('bill_of_materials')
+    .where('productId', '==', doc.id)
+    .get()
+  const bomItems = bomSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+
+  const componentIds = [...new Set(bomItems.map((b: any) => b.componentId))]
+  const compSnap = componentIds.length > 0
+    ? await adminDb.collection('components')
+        .where('factoryId', '==', req.factoryId!)
+        .get()
+    : { docs: [] }
+  const components: any = {}
+  compSnap.docs.forEach((d: any) => { components[d.id] = { id: d.id, ...d.data() } })
+
+  const customerSnap = await adminDb.collection('customer_orders')
+    .where('productId', '==', doc.id)
+    .get()
+  const orders = customerSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+
+  res.json({ product, bom: bomItems, components, orders })
+})
+
+// ── COMPONENTS ─────────────────────────────────────────────────────────────
+router.get('/components', async (req: AuthRequest, res: Response) => {
+  const snap = await adminDb.collection('components')
+    .where('factoryId', '==', req.factoryId!)
+    .get()
+  const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  res.json({ data: all, total: all.length })
+})
+
+// ── BILL OF MATERIALS ───────────────────────────────────────────────────────
+router.get('/bom', async (req: AuthRequest, res: Response) => {
+  const snap = await adminDb.collection('bill_of_materials')
+    .where('factoryId', '==', req.factoryId!)
+    .get()
+  const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  res.json({ data: all, total: all.length })
+})
+
+// ── CUSTOMER ORDERS ─────────────────────────────────────────────────────────
+router.get('/customer-orders', async (req: AuthRequest, res: Response) => {
+  const snap = await adminDb.collection('customer_orders')
+    .where('factoryId', '==', req.factoryId!)
+    .get()
+  const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  all.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  res.json({ data: all, total: all.length })
+})
+
+// ── BOM INTELLIGENCE ────────────────────────────────────────────────────────
+router.get('/bom-intelligence/:productId', async (req: AuthRequest, res: Response) => {
+  const productId = req.params.productId as string
+  const orderQty = parseInt(req.query.orderQty as string) || 0
+
+  const bomSnap = await adminDb.collection('bill_of_materials')
+    .where('productId', '==', productId)
+    .get()
+  if (bomSnap.empty) { res.json({ error: 'No BOM found for product' }); return }
+
+  const bomItems = bomSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  const componentIds = [...new Set(bomItems.map((b: any) => b.componentId))]
+
+  const compSnap = componentIds.length > 0
+    ? await adminDb.collection('components')
+        .where('factoryId', '==', req.factoryId!)
+        .get()
+    : { docs: [] }
+  const componentMap: any = {}
+  compSnap.docs.forEach((d: any) => { componentMap[d.id] = { id: d.id, ...d.data() } })
+
+  const calculations = bomItems.map((bom: any) => {
+    const comp = componentMap[bom.componentId]
+    const currentStock = comp?.currentStock || 0
+    const requiredPerProduct = bom.quantityRequired || 0
+    const totalRequired = orderQty * requiredPerProduct
+    const availableForProduction = Math.max(0, currentStock - (comp?.reservedStock || 0))
+    const shortage = Math.max(0, totalRequired - availableForProduction)
+    const possibleWithCurrent = requiredPerProduct > 0 ? Math.floor(availableForProduction / requiredPerProduct) : 0
+
+    let status: string
+    if (shortage === 0 && currentStock >= totalRequired) status = 'READY'
+    else if (shortage > 0 && availableForProduction > 0) status = 'LOW'
+    else if (availableForProduction <= 0 && totalRequired > 0) status = 'OUT OF STOCK'
+    else status = 'CRITICAL'
+
+    return {
+      componentId: bom.componentId,
+      componentName: comp?.componentName || 'Unknown',
+      componentCode: comp?.componentCode || '',
+      requiredPerProduct,
+      totalRequired,
+      currentStock,
+      reservedStock: comp?.reservedStock || 0,
+      availableForProduction,
+      shortage,
+      possibleWithCurrent,
+      status,
+      unit: comp?.unit || 'pcs',
+      supplier: comp?.supplier || '-',
+      leadTimeDays: comp?.leadTimeDays || 0,
+      unitCost: comp?.unitCost || 0,
+    }
+  })
+
+  const maxBuildable = calculations.length > 0
+    ? Math.min(...calculations.map((c: any) => c.possibleWithCurrent))
+    : 0
+  const constraints = calculations.filter((c: any) => c.possibleWithCurrent === maxBuildable)
+  const primaryConstraint = constraints[0]?.componentName || 'None'
+  const shortfall = Math.max(0, orderQty - maxBuildable)
+
+  const overallStatus = maxBuildable >= orderQty ? 'READY' : maxBuildable > 0 ? 'PARTIAL' : 'CRITICAL'
+
+  res.json({
+    orderQuantity: orderQty,
+    maxBuildable,
+    shortfall,
+    primaryConstraint,
+    constraintComponentCode: constraints[0]?.componentCode || '',
+    overallStatus,
+    calculations,
+  })
+})
+
+// ── ORDER FEASIBILITY ──────────────────────────────────────────────────────
+router.get('/order-feasibility/:orderId', async (req: AuthRequest, res: Response) => {
+  const orderSnap = await adminDb.collection('customer_orders').doc(req.params.orderId as string).get()
+  if (!orderSnap.exists) { res.status(404).json({ error: 'Order not found' }); return }
+  const order: any = { id: orderSnap.id, ...orderSnap.data() }
+
+  const remainingQty = order.quantity - (order.completedQuantity || 0)
+
+  const bomSnap = await adminDb.collection('bill_of_materials')
+    .where('productId', '==', order.productId)
+    .get()
+  const bomItems = bomSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+
+  const componentIds = [...new Set(bomItems.map((b: any) => b.componentId))]
+  const compSnap = componentIds.length > 0
+    ? await adminDb.collection('components')
+        .where('factoryId', '==', req.factoryId!)
+        .get()
+    : { docs: [] }
+  const componentMap: any = {}
+  compSnap.docs.forEach((d: any) => { componentMap[d.id] = { id: d.id, ...d.data() } })
+
+  const materialLimits = bomItems.map((bom: any) => {
+    const comp = componentMap[bom.componentId]
+    const avail = (comp?.currentStock || 0) - (comp?.reservedStock || 0)
+    const reqPerProduct = bom.quantityRequired || 0
+    return reqPerProduct > 0 ? Math.floor(avail / reqPerProduct) : Infinity
+  })
+  const maxBuildable = Math.min(...materialLimits, remainingQty)
+  const materialConstraint = materialLimits.indexOf(maxBuildable)
+  const constraintComp = bomItems[materialConstraint]
+    ? componentMap[bomItems[materialConstraint].componentId]?.componentName || 'Unknown'
+    : 'None'
+
+  let riskLevel: string
+  if (remainingQty <= 0) riskLevel = 'COMPLETED'
+  else if (maxBuildable >= remainingQty) riskLevel = 'ON TRACK'
+  else if (maxBuildable > 0) riskLevel = 'AT RISK'
+  else riskLevel = 'DELAYED'
+
+  res.json({
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    customerName: order.customerName,
+    productId: order.productId,
+    orderedQuantity: order.quantity,
+    completedQuantity: order.completedQuantity || 0,
+    remainingQuantity: remainingQty,
+    materialAvailability: maxBuildable,
+    maxBuildable,
+    primaryConstraint: constraintComp,
+    riskLevel,
+  })
+})
+
+// ── DASHBOARD - Manufacturing KPIs ─────────────────────────────────────────
+router.get('/manufacturing-kpis', async (req: AuthRequest, res: Response) => {
+  const today = new Date().toISOString().split('T')[0]
+  const factoryId = req.factoryId!
+
+  // Production
+  const prodSnap = await adminDb.collection('production')
+    .where('factoryId', '==', factoryId)
+    .where('date', '==', today)
+    .get()
+  const todayProd = prodSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  const totalTarget = todayProd.reduce((s: number, p: any) => s + (p.targetQuantity || 0), 0)
+  const totalActual = todayProd.reduce((s: number, p: any) => s + (p.actualQuantity || 0), 0)
+  const totalRejected = todayProd.reduce((s: number, p: any) => s + (p.rejectedQuantity || 0), 0)
+  const totalDowntime = todayProd.reduce((s: number, p: any) => s + (p.downtimeMinutes || 0), 0)
+  const achievement = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0
+  const rejectionRate = totalActual > 0 ? ((totalRejected / totalActual) * 100).toFixed(1) : '0.0'
+
+  // Machines
+  const machinesSnap = await adminDb.collection('machines')
+    .where('factoryId', '==', factoryId).get()
+  const machines = machinesSnap.docs.map((d: any) => d.data())
+  const totalMachines = machines.length
+  const runningMachines = machines.filter((m: any) => m.status === 'RUNNING').length
+  const breakdownMachines = machines.filter((m: any) => m.status === 'BREAKDOWN').length
+  const maintenanceMachines = machines.filter((m: any) => m.status === 'MAINTENANCE').length
+  const machineUtilization = totalMachines > 0 ? Math.round((runningMachines / totalMachines) * 100) : 0
+
+  // Workers
+  const workersSnap = await adminDb.collection('workers')
+    .where('factoryId', '==', factoryId).get()
+  const workers = workersSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  const totalWorkers = workers.length
+  const presentWorkers = workers.filter((w: any) => w.status === 'present').length
+  const workerAttendance = totalWorkers > 0 ? Math.round((presentWorkers / totalWorkers) * 100) : 0
+
+  // Components / Inventory for shortage
+  const compSnap = await adminDb.collection('components')
+    .where('factoryId', '==', factoryId).get()
+  const components = compSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  const criticalShortages = components.filter((c: any) => {
+    const available = (c.currentStock || 0) - (c.reservedStock || 0)
+    return available < (c.minimumStock || 0)
+  }).length
+
+  // Customer orders at risk
+  const ordersSnap = await adminDb.collection('customer_orders')
+    .where('factoryId', '==', factoryId).get()
+  const orders = ordersSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  const ordersAtRisk = orders.filter((o: any) => {
+    const remaining = (o.quantity || 0) - (o.completedQuantity || 0)
+    return remaining > 0 && o.status !== 'COMPLETED'
+  }).length
+
+  // Energy
+  const energySnap = await adminDb.collection('energy')
+    .where('factoryId', '==', factoryId)
+    .where('date', '==', today)
+    .get()
+  const energyRecords = energySnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  const totalEnergyKwh = energyRecords.reduce((s: number, e: any) => s + (e.energyConsumptionKwh || 0), 0)
+  const energyPerUnit = totalActual > 0 ? (totalEnergyKwh / totalActual).toFixed(2) : '0'
+
+  // BOM Intelligence for primary product
+  const prodListSnap = await adminDb.collection('products')
+    .where('factoryId', '==', factoryId).limit(1).get()
+  let maxBuildable = 0
+  let primaryConstraint = 'None'
+  let materialReadiness = 0
+  if (!prodListSnap.empty) {
+    const product = prodListSnap.docs[0]
+    const bomSnap = await adminDb.collection('bill_of_materials')
+      .where('productId', '==', product.id).get()
+    if (!bomSnap.empty) {
+      const bomItems = bomSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+      const compMap: any = {}
+      components.forEach((c: any) => { compMap[c.id] = c })
+
+      const buildableQtys = bomItems.map((b: any) => {
+        const comp = compMap[b.componentId]
+        const avail = (comp?.currentStock || 0) - (comp?.reservedStock || 0)
+        const reqPerProduct = b.quantityRequired || 0
+        return reqPerProduct > 0 ? Math.floor(avail / reqPerProduct) : Infinity
+      })
+      maxBuildable = Math.min(...buildableQtys)
+      const constraintIdx = buildableQtys.indexOf(maxBuildable)
+      if (constraintIdx >= 0 && bomItems[constraintIdx]) {
+        const c = compMap[bomItems[constraintIdx].componentId]
+        primaryConstraint = c?.componentName || 'Unknown'
+      }
+      materialReadiness = totalTarget > 0 ? Math.round((maxBuildable / totalTarget) * 100) : 0
+    }
+  }
+
+  res.json({
+    factoryName: 'Prime Auto Components',
+    industry: 'Automotive Component Manufacturing',
+    date: today,
+    productionTarget: totalTarget,
+    completedProduction: totalActual,
+    productionAchievement: achievement,
+    rejectionRate: rejectionRate,
+    totalDowntime,
+    maxBuildable,
+    materialReadiness,
+    criticalShortages,
+    primaryConstraint,
+    totalMachines,
+    runningMachines,
+    breakdownMachines,
+    maintenanceMachines,
+    machineUtilization,
+    totalWorkers,
+    presentWorkers,
+    workerAttendance,
+    ordersAtRisk,
+    totalEnergyKwh,
+    energyPerUnit,
+  })
+})
+
 export default router

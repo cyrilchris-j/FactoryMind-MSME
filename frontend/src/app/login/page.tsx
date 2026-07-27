@@ -93,14 +93,14 @@ export default function LoginPage() {
                 className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg p-3 text-left transition-colors"
               >
                 <p className="text-xs text-white/60 mb-0.5">Factory Owner</p>
-                <p className="text-sm font-semibold text-white">Mr. Kumar</p>
+                <p className="text-sm font-semibold text-white">Prime Auto Components</p>
               </button>
               <button
                 onClick={() => fillDemo('manager')}
                 className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg p-3 text-left transition-colors"
               >
                 <p className="text-xs text-white/60 mb-0.5">Manager</p>
-                <p className="text-sm font-semibold text-white">Rajesh (Production)</p>
+                <p className="text-sm font-semibold text-white">Production Manager</p>
               </button>
             </div>
           </div>

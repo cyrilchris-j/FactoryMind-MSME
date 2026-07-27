@@ -26,10 +26,10 @@ interface Message {
 }
 
 const examplePrompts = [
-  'What is the current production efficiency?',
-  'Are there any machines at risk of failing?',
-  'Which customer generates the highest profit?',
-  'Predict tomorrow\'s production capacity',
+  'Why is Brake Assembly production low today?',
+  'Can we complete the 250-unit order today?',
+  'Which component is blocking production?',
+  'What are the top three issues I should address today?',
 ];
 
 export default function AICopilotPage() {

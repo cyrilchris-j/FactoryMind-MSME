@@ -4,103 +4,107 @@ import { OwnerLayout } from '@/components/layout/owner-layout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  ShoppingCart, 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign,
-  Search,
-  Filter,
-  Loader2,
-  RefreshCw,
-  Clock,
-  CheckCircle2
+import {
+  ShoppingCart, TrendingUp, TrendingDown, DollarSign,
+  Search, Filter, Loader2, RefreshCw, Clock, CheckCircle2, AlertTriangle
 } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
 import { apiGet } from '@/lib/api';
+import Link from 'next/link';
 
-interface SalesRecord {
+interface CustomerOrder {
   id: string;
-  order_number: string;
-  customer_name: string;
-  product_name: string;
+  orderNumber: string;
+  customerName: string;
+  productName: string;
   quantity: number;
-  order_value: number;
-  profit_margin: number;
-  order_date: string;
-  delivery_date: string;
+  completedQuantity: number;
+  orderDate: string;
+  dueDate: string;
+  priority: string;
   status: string;
+  orderValue: number;
+  productId: string;
 }
 
-interface Stats {
-  totalRevenue: string;
-  avgMargin: string;
-  activeOrders: number;
-  deliveredOrders: number;
+interface OrderFeasibility {
+  orderId: string;
+  orderNumber: string;
+  remainingQuantity: number;
+  maxBuildable: number;
+  primaryConstraint: string;
+  riskLevel: string;
 }
 
-export default function SalesPage() {
-  const [records, setRecords] = useState<SalesRecord[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
+export default function SalesOrdersPage() {
+  const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [feasibilityMap, setFeasibilityMap] = useState<Record<string, OrderFeasibility>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  const fetchSales = useCallback(async () => {
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
-      const res: any = await apiGet('/api/sales');
-      const data = res.orders ?? [];
-      const formatted = data.map((d: any) => ({
-        id: d.id,
-        order_number: d.orderNumber || '',
-        customer_name: d.customerName || '',
-        product_name: d.productName || '',
-        quantity: d.quantity || 0,
-        order_value: d.orderValue || 0,
-        profit_margin: d.profitMargin || 0,
-        order_date: d.orderDate || '',
-        delivery_date: d.deliveryDate || '',
-        status: d.status || 'PENDING',
-      }));
+      const res: any = await apiGet('/api/customer-orders');
+      const data = res.data ?? [];
       const filtered = search
-        ? formatted.filter((r: any) =>
-            r.customer_name.toLowerCase().includes(search.toLowerCase()) ||
-            r.order_number.toLowerCase().includes(search.toLowerCase())
+        ? data.filter((o: any) =>
+            o.customerName?.toLowerCase().includes(search.toLowerCase()) ||
+            o.orderNumber?.toLowerCase().includes(search.toLowerCase())
           )
-        : formatted;
-      setRecords(filtered);
+        : data;
+      setOrders(filtered);
 
-      const totalRevenue = formatted.reduce((sum: number, r: any) => sum + r.order_value, 0);
-      const avgMargin = formatted.length > 0 ? formatted.reduce((sum: number, r: any) => sum + r.profit_margin, 0) / formatted.length : 0;
-      const activeOrders = filtered.filter((r: any) => r.status !== 'DELIVERED').length;
-      const deliveredOrders = filtered.filter((r: any) => r.status === 'DELIVERED').length;
-
-      setStats({
-        totalRevenue: '₹' + (totalRevenue / 100000).toFixed(1) + 'L',
-        avgMargin: avgMargin.toFixed(1) + '%',
-        activeOrders,
-        deliveredOrders,
-      });
+      const feasMap: Record<string, OrderFeasibility> = {};
+      for (const order of filtered) {
+        try {
+          const feas: any = await apiGet(`/api/order-feasibility/${order.id}`);
+          feasMap[order.id] = feas;
+        } catch { /* ignore */ }
+      }
+      setFeasibilityMap(feasMap);
     } catch (err) {
-      console.error('Failed to fetch sales', err);
+      console.error('Failed to fetch orders', err);
     }
     setLoading(false);
   }, [search]);
 
   useEffect(() => {
-    fetchSales();
-  }, [fetchSales]);
+    fetchOrders();
+  }, [fetchOrders]);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      DELIVERED: 'bg-accent/10 text-accent',
-      READY: 'bg-accent/10 text-accent',
-      IN_PRODUCTION: 'bg-warning/10 text-warning',
+      COMPLETED: 'bg-accent/10 text-accent',
+      IN_PROGRESS: 'bg-warning/10 text-warning',
       PENDING: 'bg-primary/10 text-primary',
       DELAYED: 'bg-[#D93025]/10 text-danger',
     };
-    return colors[status] || 'bg-[#4F6D7A]/10 text-secondary';
+    return colors[status] || 'bg-muted/10 text-muted';
   };
+
+  const getRiskColor = (risk: string) => {
+    const colors: Record<string, string> = {
+      'ON TRACK': 'bg-accent/10 text-accent border-accent/20',
+      'AT RISK': 'bg-warning/10 text-warning border-warning/20',
+      DELAYED: 'bg-[#D93025]/10 text-danger border-danger/20',
+      COMPLETED: 'bg-accent/10 text-accent border-accent/20',
+    };
+    return colors[risk] || 'bg-muted/10 text-muted';
+  };
+
+  const getPriorityColor = (priority: string) => {
+    const colors: Record<string, string> = {
+      HIGH: 'text-danger bg-danger/10',
+      MEDIUM: 'text-warning bg-warning/10',
+      LOW: 'text-accent bg-accent/10',
+    };
+    return colors[priority] || 'text-muted bg-muted/10';
+  };
+
+  const totalOrderValue = orders.reduce((s, o) => s + (o.orderValue || 0), 0);
+  const activeOrders = orders.filter(o => o.status !== 'COMPLETED').length;
+  const atRiskOrders = Object.values(feasibilityMap).filter(f => f?.riskLevel === 'AT RISK' || f?.riskLevel === 'DELAYED').length;
 
   return (
     <OwnerLayout>
@@ -108,78 +112,36 @@ export default function SalesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Sales & Orders</h1>
-            <p className="text-muted">Manage customer orders and revenue</p>
+            <p className="text-muted">Customer orders with feasibility analysis</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={fetchSales} disabled={loading} className="border-border">
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button className="bg-primary hover:bg-primary/90 text-white">
-              <ShoppingCart className="w-4 h-4 mr-2" />
-              New Order
-            </Button>
-          </div>
+          <Button variant="outline" onClick={fetchOrders} disabled={loading} className="border-border">
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <DollarSign className="w-5 h-5 text-primary" />
-              <span className="text-sm text-accent flex items-center">
-                <TrendingUp className="w-4 h-4 mr-1" />
-                +12%
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-foreground font-numbers">
-              {loading ? '—' : stats?.totalRevenue}
-            </p>
-            <p className="text-sm text-muted">Total Revenue</p>
+          <Card className="p-5">
+            <p className="text-2xl font-bold text-foreground">₹{(totalOrderValue / 100000).toFixed(1)}L</p>
+            <p className="text-sm text-muted">Total Order Value</p>
           </Card>
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <TrendingUp className="w-5 h-5 text-accent" />
-              <span className="text-sm text-accent flex items-center">
-                <TrendingUp className="w-4 h-4 mr-1" />
-                +2.4%
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-foreground font-numbers">
-              {loading ? '—' : stats?.avgMargin}
-            </p>
-            <p className="text-sm text-muted">Avg Profit Margin</p>
+          <Card className="p-5">
+            <p className="text-2xl font-bold text-foreground">{orders.length}</p>
+            <p className="text-sm text-muted">Total Orders</p>
           </Card>
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <Clock className="w-5 h-5 text-warning" />
-              <span className="text-sm text-accent flex items-center">
-                <TrendingUp className="w-4 h-4 mr-1" />
-                +5
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-foreground font-numbers">
-              {loading ? '—' : stats?.activeOrders}
-            </p>
+          <Card className="p-5">
+            <p className="text-2xl font-bold text-warning">{activeOrders}</p>
             <p className="text-sm text-muted">Active Orders</p>
           </Card>
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <CheckCircle2 className="w-5 h-5 text-secondary" />
-              <span className="text-sm text-accent flex items-center">
-                <TrendingUp className="w-4 h-4 mr-1" />
-                +12
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-foreground font-numbers">
-              {loading ? '—' : stats?.deliveredOrders}
-            </p>
-            <p className="text-sm text-muted">Delivered</p>
+          <Card className="p-5">
+            <p className="text-2xl font-bold text-danger">{atRiskOrders}</p>
+            <p className="text-sm text-muted">Orders at Risk</p>
           </Card>
         </div>
 
         <Card className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-foreground">Recent Orders</h2>
+            <h2 className="text-lg font-semibold text-foreground">Customer Orders</h2>
             <div className="flex space-x-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted w-4 h-4" />
@@ -191,10 +153,6 @@ export default function SalesPage() {
                   className="pl-10 pr-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
-              <Button variant="outline" size="sm" className="border-border">
-                <Filter className="w-4 h-4 mr-2" />
-                Filter
-              </Button>
             </div>
           </div>
 
@@ -205,53 +163,88 @@ export default function SalesPage() {
                   <th className="text-left py-3 px-4 font-medium text-muted">Order #</th>
                   <th className="text-left py-3 px-4 font-medium text-muted">Customer</th>
                   <th className="text-left py-3 px-4 font-medium text-muted">Product</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted">Quantity</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted">Value</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted">Margin</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted">Delivery By</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted">Qty</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted">Completed</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted">Remaining</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted">Buildable</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted">Constraint</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted">Due</th>
                   <th className="text-left py-3 px-4 font-medium text-muted">Status</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted">Risk</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="py-10 text-center text-muted">
+                    <td colSpan={11} className="py-10 text-center text-muted">
                       <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                       Loading orders...
                     </td>
                   </tr>
-                ) : records.length === 0 ? (
+                ) : orders.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-10 text-center text-muted">No sales orders found.</td>
+                    <td colSpan={11} className="py-10 text-center text-muted">No customer orders found.</td>
                   </tr>
-                ) : records.map((record) => (
-                  <tr key={record.id} className="border-b border-border hover:bg-background">
-                    <td className="py-4 px-4 text-foreground font-medium">{record.order_number}</td>
-                    <td className="py-4 px-4 text-foreground">{record.customer_name}</td>
-                    <td className="py-4 px-4 text-muted">{record.product_name}</td>
-                    <td className="py-4 px-4 text-foreground font-numbers text-right">
-                      {record.quantity.toLocaleString()}
-                    </td>
-                    <td className="py-4 px-4 text-foreground font-numbers text-right">
-                      ₹{record.order_value.toLocaleString()}
-                    </td>
-                    <td className="py-4 px-4 text-accent font-numbers text-right">
-                      {record.profit_margin}%
-                    </td>
-                    <td className="py-4 px-4 text-foreground">
-                      {record.delivery_date ? new Date(record.delivery_date).toLocaleDateString() : '-'}
-                    </td>
-                    <td className="py-4 px-4">
-                      <Badge className={getStatusColor(record.status)}>
-                        {record.status.replace('_', ' ')}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
+                ) : orders.map((order) => {
+                  const feas = feasibilityMap[order.id];
+                  const remaining = (order.quantity || 0) - (order.completedQuantity || 0);
+                  return (
+                    <tr key={order.id} className={`border-b border-border hover:bg-background ${feas?.riskLevel === 'AT RISK' || feas?.riskLevel === 'DELAYED' ? 'bg-red-50/30' : ''}`}>
+                      <td className="py-4 px-4 text-foreground font-medium">{order.orderNumber}</td>
+                      <td className="py-4 px-4 text-foreground">{order.customerName}</td>
+                      <td className="py-4 px-4 text-muted">{order.productName}</td>
+                      <td className="py-4 px-4 text-right font-numbers">{order.quantity?.toLocaleString()}</td>
+                      <td className="py-4 px-4 text-right font-numbers text-accent">{order.completedQuantity?.toLocaleString()}</td>
+                      <td className={`py-4 px-4 text-right font-numbers ${remaining > 0 ? 'text-warning' : 'text-accent'}`}>
+                        {remaining.toLocaleString()}
+                      </td>
+                      <td className={`py-4 px-4 text-right font-numbers ${feas ? (feas.maxBuildable < remaining ? 'text-danger' : 'text-accent') : 'text-muted'}`}>
+                        {feas?.maxBuildable ?? '-'}
+                      </td>
+                      <td className="py-4 px-4 text-muted text-xs">
+                        {feas?.primaryConstraint && feas?.riskLevel !== 'COMPLETED' ? feas.primaryConstraint : '-'}
+                      </td>
+                      <td className="py-4 px-4 text-foreground text-xs">
+                        {order.dueDate ? new Date(order.dueDate).toLocaleDateString() : '-'}
+                      </td>
+                      <td className="py-4 px-4">
+                        <Badge className={getStatusColor(order.status)}>
+                          {order.status?.replace('_', ' ')}
+                        </Badge>
+                      </td>
+                      <td className="py-4 px-4">
+                        {feas ? (
+                          <Badge className={getRiskColor(feas.riskLevel)}>
+                            {feas.riskLevel}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </Card>
+
+        {/* Order Risk Alert */}
+        {atRiskOrders > 0 && (
+          <Card className="p-5 border-2 border-danger/30 bg-danger/[0.02]">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-6 h-6 text-danger shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-foreground">Order Risk Detected</h3>
+                <p className="text-sm text-muted mt-1">
+                  {atRiskOrders} order(s) are currently at risk of delay due to material constraints.
+                  The primary constraint is Wear Sensor availability. Review the BOM Intelligence
+                  for detailed component-level analysis.
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
     </OwnerLayout>
   );
