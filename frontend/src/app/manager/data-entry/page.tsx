@@ -137,7 +137,7 @@ export default function ManualDataEntryPage() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="shift">Shift <span className="text-red-500">*</span></Label>
-                <Select id="shift" name="shift" required className={errors.shift ? 'border-red-400' : ''}>
+                <Select id="shift" name="shift" required defaultValue="" className={errors.shift ? 'border-red-400' : ''}>
                   <option value="" disabled>Select shift</option>
                   <option value="Morning">Morning (6 AM – 2 PM)</option>
                   <option value="Evening">Evening (2 PM – 10 PM)</option>
@@ -148,7 +148,7 @@ export default function ManualDataEntryPage() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="machine">Machine <span className="text-red-500">*</span></Label>
-                <Select id="machine" name="machine" required className={errors.machineCode ? 'border-red-400' : ''}>
+                <Select id="machine" name="machine" required defaultValue="" className={errors.machineCode ? 'border-red-400' : ''}>
                   <option value="" disabled>Select machine</option>
                   {machines.length === 0 ? (
                     <option disabled>Loading machines...</option>
@@ -165,11 +165,11 @@ export default function ManualDataEntryPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="product">Product Name <span className="text-red-500">*</span></Label>
+                <Label htmlFor="product">Product / Part Name <span className="text-red-500">*</span></Label>
                 <Input
                   id="product"
                   name="product"
-                  placeholder="e.g. Steel Bracket A4"
+                  placeholder="e.g. Brake Pad X1, Engine Valve C4"
                   required
                   className={errors.productName ? 'border-red-400' : ''}
                 />
@@ -177,13 +177,13 @@ export default function ManualDataEntryPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="targetQty">Target Quantity <span className="text-red-500">*</span></Label>
+                <Label htmlFor="targetQty">Target Quantity (Units) <span className="text-red-500">*</span></Label>
                 <Input
                   type="number"
                   id="targetQty"
                   name="targetQty"
                   min="0"
-                  placeholder="e.g. 500"
+                  placeholder="e.g. 1500"
                   required
                   className={errors.targetQuantity ? 'border-red-400' : ''}
                 />
@@ -191,13 +191,13 @@ export default function ManualDataEntryPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="actualQty">Actual Quantity <span className="text-red-500">*</span></Label>
+                <Label htmlFor="actualQty">Actual Produced Qty <span className="text-red-500">*</span></Label>
                 <Input
                   type="number"
                   id="actualQty"
                   name="actualQty"
                   min="0"
-                  placeholder="e.g. 480"
+                  placeholder="e.g. 1450"
                   required
                   className={errors.actualQuantity ? 'border-red-400' : ''}
                 />
@@ -205,7 +205,7 @@ export default function ManualDataEntryPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="rejectedQty">Rejected / Defective Qty</Label>
+                <Label htmlFor="rejectedQty">Rejected / Scrap Qty</Label>
                 <Input
                   type="number"
                   id="rejectedQty"
