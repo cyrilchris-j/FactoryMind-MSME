@@ -123,7 +123,8 @@ export default function InventoryManagerPage() {
   const [saving, setSaving] = useState(false);
 
   // Upload state
-  const [uploadStep, setUploadStep] = useState<'idle' | 'parsing' | 'preview' | 'uploading' | 'done'>('idle');
+  const [uploadStep, setUploadStep] = useState<'idle' | 'parsing' | 'preview' | 'done'>('idle');
+  const [isUploading, setIsUploading] = useState(false);
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [fileName, setFileName] = useState('');
   const [uploadResult, setUploadResult] = useState<{ updated: number; failed: number } | null>(null);
@@ -192,7 +193,7 @@ export default function InventoryManagerPage() {
   const handleConfirmUpload = async () => {
     const valid = rows.filter(r => r._valid);
     if (!valid.length) return;
-    setUploadStep('uploading');
+    setIsUploading(true);
     try {
       const result = await apiPost<{ updated: number; failed: number }>('/api/components/batch-update', { records: valid });
       setUploadResult(result);
@@ -201,8 +202,8 @@ export default function InventoryManagerPage() {
       fetchData();
     } catch (err: any) {
       showToast('error', err.message || 'Upload failed');
-      setUploadStep('preview');
     }
+    setIsUploading(false);
   };
 
   const resetUpload = () => {
@@ -493,9 +494,9 @@ export default function InventoryManagerPage() {
                     </div>
                     <div className="flex gap-3 justify-end">
                       <Button variant="outline" onClick={resetUpload} className="border-border">Cancel</Button>
-                      <Button onClick={handleConfirmUpload} disabled={rows.filter(r => r._valid).length === 0}
+                      <Button onClick={handleConfirmUpload} disabled={isUploading || rows.filter(r => r._valid).length === 0}
                         className="bg-primary text-white">
-                        {uploadStep === 'uploading' ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading...</> : <>Import {rows.filter(r => r._valid).length} Records</>}
+                        {isUploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading...</> : <>Import {rows.filter(r => r._valid).length} Records</>}
                       </Button>
                     </div>
                   </Card>

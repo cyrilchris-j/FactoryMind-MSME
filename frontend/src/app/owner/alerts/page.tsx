@@ -159,7 +159,7 @@ export default function AlertsPage() {
       }
 
       items.sort((a, b) => {
-        const sev = { critical: 0, high: 1, medium: 2, low: 3 };
+        const sev: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
         return (sev[a.severity] ?? 4) - (sev[b.severity] ?? 4);
       });
 
