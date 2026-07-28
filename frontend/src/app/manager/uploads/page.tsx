@@ -32,23 +32,18 @@ const REQUIRED_COLUMNS = ['date', 'shift', 'machine', 'product_name', 'target_qu
 
 function downloadTemplate() {
   const headers = ['date', 'shift', 'machine', 'product_name', 'target_quantity', 'actual_quantity', 'rejected_quantity', 'downtime_minutes', 'notes'];
-  const example = [
-    new Date().toISOString().split('T')[0],
-    'Morning',
-    'CNC-01',
-    'Steel Bracket A4',
-    '500',
-    '480',
-    '5',
-    '15',
-    'Routine shift notes here'
+  const today = new Date().toISOString().split('T')[0];
+  const examples = [
+    [today, 'Morning', 'CNC-01', 'Brake Pad Set Heavy Duty', '1500', '1450', '12', '15', 'Regular brake pad quality inspection passed'],
+    [today, 'Morning', 'LATHE-02', 'Brake Disc Rotor', '800', '780', '8', '20', 'Routine lathe tip replacement'],
+    [today, 'Evening', 'PRESS-01', 'Brake Caliper Assembly', '600', '590', '5', '0', 'Optimal production run']
   ];
-  const csvContent = [headers.join(','), example.join(',')].join('\n');
+  const csvContent = [headers.join(','), ...examples.map(e => e.join(','))].join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'production_template.csv';
+  a.download = 'brake_parts_production_template.csv';
   a.click();
   URL.revokeObjectURL(url);
 }
