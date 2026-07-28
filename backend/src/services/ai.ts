@@ -156,6 +156,36 @@ async function getWorkforceContext(factoryId: string) {
   }
 }
 
+async function getQualityContext(factoryId: string) {
+  const today = new Date().toISOString().split('T')[0]
+  const snap = await adminDb.collection('quality_inspections')
+    .where('factoryId', '==', factoryId)
+    .get()
+
+  if (snap.empty) return null
+
+  const data = snap.docs.map(d => d.data())
+  const totalInspected = data.reduce((acc: number, q: any) => acc + (q.quantityInspected || q.inspectedQuantity || 0), 0)
+  const totalPassed = data.reduce((acc: number, q: any) => acc + (q.quantityPassed || q.passedQuantity || 0), 0)
+  const totalRejected = data.reduce((acc: number, q: any) => acc + (q.quantityRejected || q.rejectedQuantity || 0), 0)
+  const passRate = totalInspected > 0 ? ((totalPassed / totalInspected) * 100).toFixed(1) : '100.0'
+
+  const defects: Record<string, number> = {}
+  data.forEach((q: any) => {
+    const defect = q.defectType || q.defectCategory || 'Other'
+    defects[defect] = (defects[defect] || 0) + (q.quantityRejected || q.rejectedQuantity || 1)
+  })
+
+  return {
+    totalInspected,
+    totalPassed,
+    totalRejected,
+    passRate: passRate + '%',
+    defectBreakdown: Object.entries(defects).map(([type, count]) => ({ type, count })),
+    recordsCount: data.length,
+  }
+}
+
 async function getProductAndBOMContext(factoryId: string) {
   const prodSnap = await adminDb.collection('products')
     .where('factoryId', '==', factoryId)
@@ -251,6 +281,10 @@ async function gatherContext(prompt: string, factoryId: string) {
 
   if (lowerPrompt.includes('workforce') || lowerPrompt.includes('worker') || lowerPrompt.includes('attendance') || lowerPrompt.includes('shift') || lowerPrompt.includes('present')) {
     context.workforce = await getWorkforceContext(factoryId)
+  }
+
+  if (lowerPrompt.includes('quality') || lowerPrompt.includes('defect') || lowerPrompt.includes('rejection') || lowerPrompt.includes('inspection') || lowerPrompt.includes('pass') || lowerPrompt.includes('fail')) {
+    context.quality = await getQualityContext(factoryId)
   }
 
   if (lowerPrompt.includes('bom') || lowerPrompt.includes('product') || lowerPrompt.includes('component') || lowerPrompt.includes('bill of material') || lowerPrompt.includes('brake') || lowerPrompt.includes('shortage') || lowerPrompt.includes('constraint') || lowerPrompt.includes('buildable') || lowerPrompt.includes('material')) {
@@ -354,6 +388,7 @@ export async function getDailyBriefing(factoryId: string) {
     energy: await getEnergyContext(factoryId),
     sales: await getSalesContext(factoryId),
     workforce: await getWorkforceContext(factoryId),
+    quality: await getQualityContext(factoryId),
   }
 
   const hasData = Object.values(context).some(v => v !== null)
@@ -401,6 +436,9 @@ ${JSON.stringify(context, null, 2)}`
   }
   if (context.workforce) {
     parts.push(`Workforce: ${context.workforce.attendanceRate} attendance (${context.workforce.presentWorkers}/${context.workforce.totalWorkers})`)
+  }
+  if (context.quality) {
+    parts.push(`Quality: ${context.quality.passRate} pass rate (${context.quality.totalInspected} inspected, ${context.quality.totalRejected} rejected)`)
   }
 
   return { text: parts.length > 0 ? parts.join('\n') : 'No significant data to report for today.' }

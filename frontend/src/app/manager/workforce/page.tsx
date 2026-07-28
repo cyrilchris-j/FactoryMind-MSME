@@ -1,0 +1,125 @@
+'use client';
+
+import { ManagerLayout } from '@/components/layout/manager-layout';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
+import { Save, Loader2, CheckCircle2, AlertCircle, Users, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+import { useState, useRef } from 'react';
+import { apiPost } from '@/lib/api';
+import { useAuth } from '@/components/auth/auth-provider';
+
+export default function WorkforceManagerPage() {
+  const { user } = useAuth();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<{ type: string; message: string } | null>(null);
+  const dept = user?.department || 'Assembly';
+
+  const showToast = (type: string, message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    const form = new FormData(e.currentTarget);
+    const payload = {
+      department: dept,
+      requiredWorkers: parseInt(form.get('required') as string) || 0,
+      present: parseInt(form.get('present') as string) || 0,
+      absent: parseInt(form.get('absent') as string) || 0,
+      shift: form.get('shift'),
+      overtime: parseInt(form.get('overtime') as string) || 0,
+      date: new Date().toISOString().split('T')[0],
+      notes: form.get('notes') || '',
+    };
+    try {
+      await apiPost('/api/workforce', payload);
+      showToast('success', 'Workforce attendance saved!');
+      formRef.current?.reset();
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to save');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <ManagerLayout>
+      <div className="max-w-3xl mx-auto space-y-6">
+        {toast && (
+          <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
+            toast.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'
+          }`}>
+            {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+            {toast.message}
+          </div>
+        )}
+
+        <div className="flex items-center gap-4">
+          <Link href="/manager/dashboard">
+            <Button variant="outline" size="icon" className="border-border"><ArrowLeft className="w-4 h-4" /></Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Workforce Attendance</h1>
+            <p className="text-sm text-muted">{dept} Department</p>
+          </div>
+        </div>
+
+        <Card className="p-6">
+          <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
+            <div className="flex items-center gap-2 pb-3 border-b border-border">
+              <Users className="w-5 h-5 text-purple-600" />
+              <span className="text-sm font-semibold text-foreground">Today's Attendance — {dept}</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Required Workers</Label>
+                <Input type="number" name="required" min="1" placeholder="e.g. 25" required />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Present</Label>
+                <Input type="number" name="present" min="0" placeholder="e.g. 19" required />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Absent</Label>
+                <Input type="number" name="absent" min="0" defaultValue="0" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Shift</Label>
+                <Select name="shift" required>
+                  <option value="Morning">Morning</option>
+                  <option value="Evening">Evening</option>
+                  <option value="Night">Night</option>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Overtime (Hours)</Label>
+                <Input type="number" name="overtime" min="0" defaultValue="0" step="0.5" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Date</Label>
+                <Input type="date" name="date" defaultValue={new Date().toISOString().split('T')[0]} />
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>Notes</Label>
+                <textarea name="notes" rows={2}
+                  className="flex w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm"
+                  placeholder="Attendance notes..." />
+              </div>
+            </div>
+            <div className="flex justify-end pt-3 border-t border-border">
+              <Button type="submit" disabled={loading} className="bg-primary text-white px-8">
+                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : <><Save className="w-4 h-4 mr-2" /> Save Attendance</>}
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    </ManagerLayout>
+  );
+}

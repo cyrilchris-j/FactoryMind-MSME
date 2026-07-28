@@ -1,45 +1,42 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
-  Bot,
   Factory as FactoryIcon,
   Package,
-  Wrench,
-  Zap,
+  Boxes,
   ShoppingCart,
+  Wrench,
+  ShieldCheck,
   Users,
-  BarChart3,
-  FileText,
+  Zap,
+  Sparkles,
+  Bell,
+  FileBarChart,
   Settings,
   ChevronLeft,
   ChevronRight,
-  Bell,
   UserCircle,
   LogOut,
-  UserCog,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/auth-provider';
 
-import { ClipboardList } from 'lucide-react';
-
 const navigation = [
   { name: 'Dashboard', href: '/owner/dashboard', icon: LayoutDashboard },
-  { name: 'AI Copilot', href: '/owner/ai-copilot', icon: Bot },
-  { name: 'Products & BOM', href: '/owner/products', icon: ClipboardList },
+  { name: 'Products & BOM', href: '/owner/products', icon: Package },
   { name: 'Production', href: '/owner/production', icon: FactoryIcon },
-  { name: 'Inventory', href: '/owner/inventory', icon: Package },
-  { name: 'Maintenance', href: '/owner/maintenance', icon: Wrench },
+  { name: 'Inventory', href: '/owner/inventory', icon: Boxes },
+  { name: 'Orders', href: '/owner/orders', icon: ShoppingCart },
+  { name: 'Machines & Maintenance', href: '/owner/maintenance', icon: Wrench },
+  { name: 'Quality', href: '/owner/quality', icon: ShieldCheck },
+  { name: 'Workforce', href: '/owner/workers', icon: Users },
   { name: 'Energy', href: '/owner/energy', icon: Zap },
-  { name: 'Sales & Orders', href: '/owner/sales', icon: ShoppingCart },
-  { name: 'Workers', href: '/owner/workers', icon: Users },
-  { name: 'Analytics', href: '/owner/analytics', icon: BarChart3 },
-  { name: 'Notifications', href: '/owner/notifications', icon: Bell },
-  { name: 'Managers', href: '/owner/managers', icon: UserCog },
+  { name: 'AI Factory Copilot', href: '/owner/ai-copilot', icon: Sparkles },
+  { name: 'Alerts', href: '/owner/alerts', icon: Bell },
+  { name: 'Reports', href: '/owner/reports', icon: FileBarChart },
 ];
 
 const bottomNav = [

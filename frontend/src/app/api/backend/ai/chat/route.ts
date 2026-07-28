@@ -4,14 +4,14 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 async function fetchLiveFactoryData() {
   const projectId = 'factorymind-msme';
-  const collections = ['production', 'inventory', 'maintenance', 'machines', 'sales'];
+  const collections = ['production', 'inventory', 'maintenance', 'machines', 'sales', 'components', 'bill_of_materials', 'customer_orders', 'workers', 'quality_inspections', 'energy'];
   const factoryData: Record<string, any[]> = {};
 
   await Promise.all(
     collections.map(async (col) => {
       try {
         const res = await fetch(
-          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${col}?pageSize=50`
+          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${col}?pageSize=100`
         );
         if (res.ok) {
           const data = await res.json();
@@ -50,23 +50,29 @@ export async function POST(request: Request) {
     // Fetch live factory database records submitted by managers
     const liveData = await fetchLiveFactoryData();
 
-    const systemPrompt = `You are FactoryMind AI Copilot, an expert AI decision intelligence assistant for Micro, Small and Medium Manufacturing Enterprises (MSMEs).
-You have real-time access to live factory records submitted by Managers in Firestore Database.
+    const systemPrompt = `You are FactoryMind AI Copilot, an expert AI decision intelligence assistant for Prime Auto Components — an automotive brake assembly manufacturer.
+
+FACTORY CONTEXT:
+- Factory: Prime Auto Components, Chennai
+- Product: Automotive Brake Assembly
+- BOM: Each assembly requires 10 components: Brake Disc ×1, Brake Caliper ×1, Brake Pad ×2, Piston ×1, Caliper Bracket ×1, Guide Pin ×2, Seal Ring ×1, Dust Boot ×1, Bolt Kit ×1, Wear Sensor ×1
+- Maximum buildable assemblies = minimum of (available stock ÷ BOM quantity) across all components
 
 CURRENT LIVE FACTORY DATABASE RECORDS:
 ${JSON.stringify(liveData, null, 2)}
 
 INSTRUCTIONS:
-1. Carefully analyze the live factory database records above to answer the Owner's question accurately based on REAL manager inputs.
-2. If the user asks about production, inventory, machines, maintenance, or sales, reference specific numbers, products, and machine codes from the records above.
-3. Be professional, concise, encouraging, and clear.
-4. Output your response ONLY in JSON format:
+1. Analyze live factory records above to answer the Owner's question. Reference specific component names, quantities, machine codes, and order numbers.
+2. When asked about production capacity or order feasibility, calculate the max buildable quantity using BOM logic: max_assemblies = min(component_available ÷ component_required_per_assembly) for each of the 10 components.
+3. Identify the bottleneck component (lowest ratio) and shortage amounts.
+4. Be professional, concise, and action-oriented. Give specific numbers.
+5. Output ONLY in this JSON format:
 {
-  "summary": "Direct, clear answer to the Owner's question based on live data",
-  "key_findings": ["Finding 1 from real data", "Finding 2 from real data"],
+  "summary": "Direct answer based on live data",
+  "key_findings": ["Finding 1 with specific numbers", "Finding 2"],
   "risk_level": "LOW | MEDIUM | HIGH | CRITICAL",
-  "recommended_actions": ["Action 1 based on analysis", "Action 2 based on analysis"],
-  "data_sources": ["Firestore Database (Manager Submissions)"],
+  "recommended_actions": ["Action 1", "Action 2"],
+  "data_sources": ["Components DB", "Production DB", "Orders DB"],
   "confidence": 0.95
 }`;
 

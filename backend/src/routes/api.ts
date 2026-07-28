@@ -237,6 +237,32 @@ router.get('/inventory', async (req: AuthRequest, res: Response) => {
   })
 })
 
+router.post('/maintenance', async (req: AuthRequest, res: Response) => {
+  const { machineCode, machineName, issueType, description, priority, status, downtimeMinutes, reportedDate, expectedResolution, notes } = req.body
+  try {
+    const docRef = await adminDb.collection('maintenance').add({
+      factoryId: req.factoryId,
+      machineCode: machineCode || '',
+      machineName: machineName || '',
+      issueType: issueType || '',
+      description: description || '',
+      priority: priority || 'MEDIUM',
+      status: status || 'PENDING',
+      downtimeMinutes: Number(downtimeMinutes || 0),
+      reportedDate: reportedDate || new Date().toISOString().split('T')[0],
+      expectedResolution: expectedResolution || '',
+      maintenanceCost: 0,
+      nextMaintenance: '',
+      notes: notes || '',
+      createdAt: new Date().toISOString(),
+    })
+    res.status(201).json({ id: docRef.id, message: 'Maintenance record created' })
+  } catch (err) {
+    console.error('Failed to create maintenance record:', err)
+    res.status(500).json({ error: 'Failed to create maintenance record' })
+  }
+})
+
 router.get('/maintenance', async (req: AuthRequest, res: Response) => {
   const { status, page = '1', limit = '20' } = req.query
   let query: any = adminDb.collection('maintenance')
@@ -255,6 +281,31 @@ router.get('/maintenance', async (req: AuthRequest, res: Response) => {
     upcoming: all.filter((m: any) => m.status === 'scheduled').length,
     avgHealthScore: 78,
   })
+})
+
+router.post('/energy', async (req: AuthRequest, res: Response) => {
+  const { recordDate, machineCode, machineName, shift, modelOrPart, hoursRun, totalKwh, totalOutput, peakDemandKw, powerFactor, remarks } = req.body
+  try {
+    const docRef = await adminDb.collection('energy').add({
+      factoryId: req.factoryId,
+      recordDate: recordDate || new Date().toISOString().split('T')[0],
+      machineCode: machineCode || '',
+      machineName: machineName || '',
+      shift: shift || '',
+      modelOrPart: modelOrPart || '',
+      hoursRun: Number(hoursRun || 0),
+      totalKwh: Number(totalKwh || 0),
+      totalOutput: Number(totalOutput || 0),
+      peakDemandKw: Number(peakDemandKw || 0),
+      powerFactor: Number(powerFactor || 1),
+      remarks: remarks || '',
+      createdAt: new Date().toISOString(),
+    })
+    res.status(201).json({ id: docRef.id, message: 'Energy record created' })
+  } catch (err) {
+    console.error('Failed to create energy record:', err)
+    res.status(500).json({ error: 'Failed to create energy record' })
+  }
 })
 
 router.get('/energy', async (req: AuthRequest, res: Response) => {
@@ -706,15 +757,23 @@ router.get('/manufacturing-kpis', async (req: AuthRequest, res: Response) => {
   const achievement = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0
   const rejectionRate = totalActual > 0 ? ((totalRejected / totalActual) * 100).toFixed(1) : '0.0'
 
+  // WIP — sum from today's in_progress records
+  const wip = todayProd
+    .filter((p: any) => p.status === 'in_progress')
+    .reduce((s: number, p: any) => s + Math.max(0, (p.targetQuantity || 0) - (p.actualQuantity || 0)), 0)
+
   // Machines
   const machinesSnap = await adminDb.collection('machines')
     .where('factoryId', '==', factoryId).get()
-  const machines = machinesSnap.docs.map((d: any) => d.data())
+  const machines = machinesSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
   const totalMachines = machines.length
   const runningMachines = machines.filter((m: any) => m.status === 'RUNNING').length
   const breakdownMachines = machines.filter((m: any) => m.status === 'BREAKDOWN').length
   const maintenanceMachines = machines.filter((m: any) => m.status === 'MAINTENANCE').length
   const machineUtilization = totalMachines > 0 ? Math.round((runningMachines / totalMachines) * 100) : 0
+  const breakdownMachinesList = machines.filter((m: any) => m.status === 'BREAKDOWN').map((m: any) => ({
+    machineCode: m.machineCode, machineName: m.machineName,
+  }))
 
   // Workers
   const workersSnap = await adminDb.collection('workers')
@@ -722,25 +781,32 @@ router.get('/manufacturing-kpis', async (req: AuthRequest, res: Response) => {
   const workers = workersSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
   const totalWorkers = workers.length
   const presentWorkers = workers.filter((w: any) => w.status === 'present').length
+  const absentWorkers = totalWorkers - presentWorkers
   const workerAttendance = totalWorkers > 0 ? Math.round((presentWorkers / totalWorkers) * 100) : 0
 
-  // Components / Inventory for shortage
+  // Components
   const compSnap = await adminDb.collection('components')
     .where('factoryId', '==', factoryId).get()
   const components = compSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
-  const criticalShortages = components.filter((c: any) => {
-    const available = (c.currentStock || 0) - (c.reservedStock || 0)
-    return available < (c.minimumStock || 0)
-  }).length
 
-  // Customer orders at risk
+  // Customer orders
   const ordersSnap = await adminDb.collection('customer_orders')
     .where('factoryId', '==', factoryId).get()
   const orders = ordersSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
-  const ordersAtRisk = orders.filter((o: any) => {
+  const activeOrders = orders.filter((o: any) => o.status !== 'COMPLETED')
+  const ordersAtRisk = activeOrders.filter((o: any) => {
     const remaining = (o.quantity || 0) - (o.completedQuantity || 0)
-    return remaining > 0 && o.status !== 'COMPLETED'
-  }).length
+    return remaining > 0
+  })
+
+  // Total remaining order quantity for all active orders
+  const totalOrderRemaining = activeOrders.reduce((s: number, o: any) => {
+    return s + Math.max(0, (o.quantity || 0) - (o.completedQuantity || 0))
+  }, 0)
+
+  // Primary active order for dashboard display
+  const primaryOrder = activeOrders.find((o: any) => o.priority === 'HIGH') || activeOrders[0] || null
+  const primaryOrderRemaining = primaryOrder ? Math.max(0, (primaryOrder.quantity || 0) - (primaryOrder.completedQuantity || 0)) : 0
 
   // Energy
   const energySnap = await adminDb.collection('energy')
@@ -751,12 +817,17 @@ router.get('/manufacturing-kpis', async (req: AuthRequest, res: Response) => {
   const totalEnergyKwh = energyRecords.reduce((s: number, e: any) => s + (e.energyConsumptionKwh || 0), 0)
   const energyPerUnit = totalActual > 0 ? (totalEnergyKwh / totalActual).toFixed(2) : '0'
 
-  // BOM Intelligence for primary product
+  // BOM Intelligence — full readiness array
   const prodListSnap = await adminDb.collection('products')
     .where('factoryId', '==', factoryId).limit(1).get()
   let maxBuildable = 0
   let primaryConstraint = 'None'
+  let primaryConstraintShortage = 0
   let materialReadiness = 0
+  let bomReadiness: any[] = []
+  let componentsReady = 0
+  let componentsTotal = 0
+
   if (!prodListSnap.empty) {
     const product = prodListSnap.docs[0]
     const bomSnap = await adminDb.collection('bill_of_materials')
@@ -766,47 +837,400 @@ router.get('/manufacturing-kpis', async (req: AuthRequest, res: Response) => {
       const compMap: any = {}
       components.forEach((c: any) => { compMap[c.id] = c })
 
-      const buildableQtys = bomItems.map((b: any) => {
+      // Use the primary order remaining quantity as the basis for required calculation
+      const orderQty = primaryOrderRemaining || totalTarget || 250
+
+      bomReadiness = bomItems.map((b: any) => {
         const comp = compMap[b.componentId]
-        const avail = (comp?.currentStock || 0) - (comp?.reservedStock || 0)
-        const reqPerProduct = b.quantityRequired || 0
-        return reqPerProduct > 0 ? Math.floor(avail / reqPerProduct) : Infinity
+        const currentStock = comp?.currentStock || 0
+        const reservedStock = comp?.reservedStock || 0
+        const incomingStock = comp?.incomingStock || 0
+        const available = currentStock - reservedStock
+        const requiredPerProduct = b.quantityRequired || 0
+        const totalRequired = orderQty * requiredPerProduct
+        const shortage = Math.max(0, totalRequired - available)
+        const possibleQty = requiredPerProduct > 0 ? Math.floor(available / requiredPerProduct) : 0
+        const isReady = available >= totalRequired
+
+        return {
+          componentId: b.componentId,
+          componentName: comp?.componentName || 'Unknown',
+          componentCode: comp?.componentCode || '',
+          requiredPerProduct,
+          totalRequired,
+          currentStock,
+          reservedStock,
+          incomingStock,
+          available,
+          shortage,
+          possibleQty,
+          isReady,
+          status: isReady ? 'READY' : shortage > 0 && available > 0 ? 'LOW' : 'CRITICAL',
+          supplier: comp?.supplier || '-',
+          leadTimeDays: comp?.leadTimeDays || 0,
+        }
       })
-      maxBuildable = Math.min(...buildableQtys)
-      const constraintIdx = buildableQtys.indexOf(maxBuildable)
-      if (constraintIdx >= 0 && bomItems[constraintIdx]) {
-        const c = compMap[bomItems[constraintIdx].componentId]
-        primaryConstraint = c?.componentName || 'Unknown'
+
+      componentsTotal = bomReadiness.length
+      componentsReady = bomReadiness.filter((c: any) => c.isReady).length
+
+      const buildableQtys = bomReadiness.map((c: any) => c.possibleQty)
+      maxBuildable = buildableQtys.length > 0 ? Math.min(...buildableQtys) : 0
+
+      const constraintItem = bomReadiness.reduce((min: any, c: any) =>
+        c.possibleQty < min.possibleQty ? c : min, bomReadiness[0])
+      if (constraintItem && constraintItem.possibleQty < orderQty) {
+        primaryConstraint = constraintItem.componentName
+        primaryConstraintShortage = constraintItem.shortage
       }
-      materialReadiness = totalTarget > 0 ? Math.round((maxBuildable / totalTarget) * 100) : 0
+
+      materialReadiness = orderQty > 0 ? Math.round((maxBuildable / orderQty) * 100) : 0
     }
   }
+
+  // Overall order risk
+  const materialReady = componentsReady === componentsTotal && componentsTotal > 0
+  let orderRiskStatus = 'ON TRACK'
+  if (!materialReady && primaryConstraintShortage > 0) orderRiskStatus = 'AT RISK'
+  if (breakdownMachines > 0 && !materialReady) orderRiskStatus = 'AT RISK'
+  if (maxBuildable <= 0 && primaryOrderRemaining > 0) orderRiskStatus = 'CRITICAL'
+  if (primaryOrderRemaining <= 0) orderRiskStatus = 'COMPLETED'
+
+  // Critical issues
+  const criticalIssues: any[] = []
+  if (primaryConstraintShortage > 0) {
+    criticalIssues.push({ type: 'material', title: 'Material Shortage', description: `${primaryConstraint}: ${primaryConstraintShortage} units short`, severity: 'critical' })
+  }
+  breakdownMachinesList.forEach((m: any) => {
+    criticalIssues.push({ type: 'machine', title: 'Machine Breakdown', description: `${m.machineCode} — ${m.machineName}`, severity: 'critical' })
+  })
+  if (totalRejected > 0 && parseFloat(rejectionRate) > 2) {
+    criticalIssues.push({ type: 'quality', title: 'High Rejection Rate', description: `${rejectionRate}% rejection rate (${totalRejected} units)`, severity: 'warning' })
+  }
+  if (workerAttendance < 80) {
+    criticalIssues.push({ type: 'workforce', title: 'Workforce Shortage', description: `${absentWorkers} absent (${workerAttendance}% attendance)`, severity: 'warning' })
+  }
+  ordersAtRisk.forEach((o: any) => {
+    if (o.dueDate && o.dueDate <= today) {
+      criticalIssues.push({ type: 'order', title: 'Order Overdue', description: `${o.orderNumber} — due ${o.dueDate}`, severity: 'warning' })
+    }
+  })
+
+  // Maintenance issues
+  const maintSnap = await adminDb.collection('maintenance')
+    .where('factoryId', '==', factoryId).get()
+  const activeMaintenance = maintSnap.docs.map((d: any) => d.data()).filter((m: any) => m.status !== 'COMPLETED')
+
+  // Quality
+  const qualitySnap = await adminDb.collection('quality_inspections')
+    .where('factoryId', '==', factoryId)
+    .where('date', '==', today)
+    .get()
+  const qualityRecords = qualitySnap.docs.map((d: any) => d.data())
+  const totalInspected = qualityRecords.reduce((s: number, q: any) => s + (q.inspectedQuantity || 0), 0)
+  const totalPassed = qualityRecords.reduce((s: number, q: any) => s + (q.passedQuantity || 0), 0)
+  const qualityPassRate = totalInspected > 0 ? ((totalPassed / totalInspected) * 100).toFixed(1) : '0'
 
   res.json({
     factoryName: 'Prime Auto Components',
     industry: 'Automotive Component Manufacturing',
+    productName: 'Automotive Brake Assembly',
     date: today,
+    // Production
     productionTarget: totalTarget,
     completedProduction: totalActual,
+    wip,
+    remaining: Math.max(0, (primaryOrderRemaining || totalTarget) - totalActual),
     productionAchievement: achievement,
-    rejectionRate: rejectionRate,
+    rejectedQuantity: totalRejected,
+    rejectionRate,
     totalDowntime,
+    // BOM Readiness
+    bomReadiness,
+    componentsReady,
+    componentsTotal,
     maxBuildable,
     materialReadiness,
-    criticalShortages,
+    materialReady,
     primaryConstraint,
+    primaryConstraintShortage,
+    // Orders
+    orderRiskStatus,
+    ordersAtRisk: ordersAtRisk.length,
+    primaryOrder: primaryOrder ? {
+      orderNumber: primaryOrder.orderNumber,
+      customerName: primaryOrder.customerName,
+      quantity: primaryOrder.quantity,
+      completedQuantity: primaryOrder.completedQuantity || 0,
+      remaining: primaryOrderRemaining,
+      dueDate: primaryOrder.dueDate,
+      priority: primaryOrder.priority,
+      status: primaryOrder.status,
+    } : null,
+    // Machines
     totalMachines,
     runningMachines,
     breakdownMachines,
     maintenanceMachines,
     machineUtilization,
+    breakdownMachinesList,
+    activeMaintenance: activeMaintenance.length,
+    // Workforce
     totalWorkers,
     presentWorkers,
+    absentWorkers,
     workerAttendance,
-    ordersAtRisk,
+    // Energy
     totalEnergyKwh,
     energyPerUnit,
+    // Quality
+    qualityPassRate,
+    totalInspected,
+    // Critical Issues
+    criticalIssues,
   })
+})
+
+// ── COMPONENT INVENTORY STATUS ─────────────────────────────────────────────
+router.get('/components/inventory-status', async (req: AuthRequest, res: Response) => {
+  const factoryId = req.factoryId!
+
+  const compSnap = await adminDb.collection('components')
+    .where('factoryId', '==', factoryId).get()
+  const components = compSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+
+  // Get active orders and BOM
+  const ordersSnap = await adminDb.collection('customer_orders')
+    .where('factoryId', '==', factoryId).get()
+  const activeOrders = ordersSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+    .filter((o: any) => o.status !== 'COMPLETED')
+  const totalOrderQty = activeOrders.reduce((s: number, o: any) =>
+    s + Math.max(0, (o.quantity || 0) - (o.completedQuantity || 0)), 0)
+
+  const prodListSnap = await adminDb.collection('products')
+    .where('factoryId', '==', factoryId).limit(1).get()
+  let bomMap: Record<string, number> = {}
+  if (!prodListSnap.empty) {
+    const bomSnap = await adminDb.collection('bill_of_materials')
+      .where('productId', '==', prodListSnap.docs[0].id).get()
+    bomSnap.docs.forEach((d: any) => {
+      const data = d.data()
+      bomMap[data.componentId] = data.quantityRequired || 0
+    })
+  }
+
+  const inventoryStatus = components.map((c: any) => {
+    const requiredPerProduct = bomMap[c.id] || 0
+    const totalRequired = totalOrderQty * requiredPerProduct
+    const available = (c.currentStock || 0) - (c.reservedStock || 0)
+    const shortage = Math.max(0, totalRequired - available)
+
+    let status = 'READY'
+    if (shortage > 0 && available > 0) status = 'LOW'
+    if (shortage > 0 && available <= 0) status = 'OUT_OF_STOCK'
+    if (shortage > totalRequired * 0.3) status = 'CRITICAL'
+
+    return {
+      id: c.id,
+      componentCode: c.componentCode,
+      componentName: c.componentName,
+      unit: c.unit,
+      currentStock: c.currentStock || 0,
+      incomingStock: c.incomingStock || 0,
+      reservedStock: c.reservedStock || 0,
+      available,
+      requiredPerProduct,
+      totalRequired,
+      shortage,
+      status,
+      supplier: c.supplier || '-',
+      leadTimeDays: c.leadTimeDays || 0,
+      unitCost: c.unitCost || 0,
+    }
+  })
+
+  inventoryStatus.sort((a: any, b: any) => b.shortage - a.shortage)
+
+  res.json({ data: inventoryStatus, totalOrderQty, total: inventoryStatus.length })
+})
+
+// ── UPDATE SINGLE COMPONENT ─────────────────────────────────────────────────
+router.put('/components/:id', async (req: AuthRequest, res: Response) => {
+  const componentId = req.params.id as string
+  const { currentStock, incomingStock, reservedStock, supplier, expectedArrival, notes } = req.body
+
+  try {
+    const updateData: any = { updatedAt: new Date().toISOString() }
+    if (currentStock !== undefined) updateData.currentStock = Number(currentStock)
+    if (incomingStock !== undefined) updateData.incomingStock = Number(incomingStock)
+    if (reservedStock !== undefined) updateData.reservedStock = Number(reservedStock)
+    if (supplier !== undefined) updateData.supplier = supplier
+    if (expectedArrival !== undefined) updateData.expectedArrival = expectedArrival
+    if (notes !== undefined) updateData.notes = notes
+
+    await adminDb.collection('components').doc(componentId).update(updateData)
+    res.json({ success: true, message: 'Component updated' })
+  } catch (err) {
+    console.error('Failed to update component:', err)
+    res.status(500).json({ error: 'Failed to update component' })
+  }
+})
+
+// ── BATCH UPDATE COMPONENTS ──────────────────────────────────────────────────
+router.post('/components/batch-update', async (req: AuthRequest, res: Response) => {
+  const { records } = req.body
+  if (!Array.isArray(records) || records.length === 0) {
+    res.status(400).json({ error: 'Records array is required' })
+    return
+  }
+
+  const factoryId = req.factoryId!
+  const compSnap = await adminDb.collection('components')
+    .where('factoryId', '==', factoryId).get()
+  const compByCode: Record<string, string> = {}
+  compSnap.docs.forEach((d: any) => {
+    const data = d.data()
+    compByCode[data.componentCode] = d.id
+  })
+
+  let updated = 0
+  let failed = 0
+  for (const r of records) {
+    try {
+      const code = r.component_code || r.componentCode
+      const docId = compByCode[code]
+      if (!docId) { failed++; continue }
+
+      const updateData: any = { updatedAt: new Date().toISOString() }
+      if (r.current_stock !== undefined || r.currentStock !== undefined) {
+        updateData.currentStock = Number(r.current_stock ?? r.currentStock)
+      }
+      if (r.incoming_quantity !== undefined || r.incomingStock !== undefined) {
+        updateData.incomingStock = Number(r.incoming_quantity ?? r.incomingStock)
+      }
+      if (r.reserved_quantity !== undefined || r.reservedStock !== undefined) {
+        updateData.reservedStock = Number(r.reserved_quantity ?? r.reservedStock)
+      }
+
+      await adminDb.collection('components').doc(docId).update(updateData)
+      updated++
+    } catch {
+      failed++
+    }
+  }
+
+  res.json({ updated, failed })
+})
+
+// ── QUALITY INSPECTIONS ─────────────────────────────────────────────────────
+router.post('/quality', async (req: AuthRequest, res: Response) => {
+  const { product, batch, inspectedQuantity, passedQuantity, rejectedQuantity, defectType, rejectionReason, date, shift, notes } = req.body
+  try {
+    const docRef = await adminDb.collection('quality_inspections').add({
+      factoryId: req.factoryId,
+      departmentId: req.departmentId || '',
+      product: product || 'Automotive Brake Assembly',
+      batch: batch || '',
+      inspectedQuantity: Number(inspectedQuantity || 0),
+      passedQuantity: Number(passedQuantity || 0),
+      rejectedQuantity: Number(rejectedQuantity || 0),
+      defectType: defectType || '',
+      rejectionReason: rejectionReason || '',
+      date: date || new Date().toISOString().split('T')[0],
+      shift: shift || '',
+      notes: notes || '',
+      passRate: Number(inspectedQuantity) > 0 ? ((Number(passedQuantity) / Number(inspectedQuantity)) * 100).toFixed(1) : '0',
+      rejectionRate: Number(inspectedQuantity) > 0 ? ((Number(rejectedQuantity) / Number(inspectedQuantity)) * 100).toFixed(1) : '0',
+      createdAt: new Date().toISOString(),
+    })
+    res.status(201).json({ id: docRef.id, message: 'Quality record created' })
+  } catch (err) {
+    console.error('Failed to create quality record:', err)
+    res.status(500).json({ error: 'Failed to save quality record' })
+  }
+})
+
+router.get('/quality', async (req: AuthRequest, res: Response) => {
+  const snap = await adminDb.collection('quality_inspections')
+    .where('factoryId', '==', req.factoryId!).get()
+  const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  all.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  res.json({ data: all, total: all.length })
+})
+
+// ── WORKFORCE ATTENDANCE ────────────────────────────────────────────────────
+router.post('/workforce', async (req: AuthRequest, res: Response) => {
+  const { department, requiredWorkers, present, absent, shift, overtime, date, notes } = req.body
+  try {
+    const docRef = await adminDb.collection('workforce_attendance').add({
+      factoryId: req.factoryId,
+      departmentId: req.departmentId || '',
+      department: department || '',
+      requiredWorkers: Number(requiredWorkers || 0),
+      present: Number(present || 0),
+      absent: Number(absent || 0),
+      shift: shift || '',
+      overtime: Number(overtime || 0),
+      date: date || new Date().toISOString().split('T')[0],
+      notes: notes || '',
+      createdAt: new Date().toISOString(),
+    })
+    res.status(201).json({ id: docRef.id, message: 'Workforce record created' })
+  } catch (err) {
+    console.error('Failed to create workforce record:', err)
+    res.status(500).json({ error: 'Failed to save workforce record' })
+  }
+})
+
+router.get('/workforce', async (req: AuthRequest, res: Response) => {
+  const snap = await adminDb.collection('workforce_attendance')
+    .where('factoryId', '==', req.factoryId!).get()
+  const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  all.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  res.json({ data: all, total: all.length })
+})
+
+// ── CUSTOMER ORDER CRUD ─────────────────────────────────────────────────────
+router.post('/customer-orders', async (req: AuthRequest, res: Response) => {
+  const { orderNumber, customerName, productId, productName, quantity, dueDate, priority, notes } = req.body
+  try {
+    const docRef = await adminDb.collection('customer_orders').add({
+      factoryId: req.factoryId,
+      orderNumber: orderNumber || `ORD-${Date.now()}`,
+      customerName: customerName || '',
+      productId: productId || '',
+      productName: productName || 'Automotive Brake Assembly',
+      quantity: Number(quantity || 0),
+      completedQuantity: 0,
+      orderDate: new Date().toISOString().split('T')[0],
+      dueDate: dueDate || '',
+      priority: priority || 'MEDIUM',
+      status: 'PENDING',
+      orderValue: 0,
+      notes: notes || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
+    res.status(201).json({ id: docRef.id, message: 'Order created' })
+  } catch (err) {
+    console.error('Failed to create order:', err)
+    res.status(500).json({ error: 'Failed to create order' })
+  }
+})
+
+router.put('/customer-orders/:id', async (req: AuthRequest, res: Response) => {
+  const orderId = req.params.id as string
+  const updates = req.body
+  try {
+    const updateData: any = { updatedAt: new Date().toISOString() }
+    const allowed = ['orderNumber', 'customerName', 'quantity', 'completedQuantity', 'dueDate', 'priority', 'status', 'notes']
+    allowed.forEach(k => { if (updates[k] !== undefined) updateData[k] = updates[k] })
+    await adminDb.collection('customer_orders').doc(orderId).update(updateData)
+    res.json({ success: true, message: 'Order updated' })
+  } catch (err) {
+    console.error('Failed to update order:', err)
+    res.status(500).json({ error: 'Failed to update order' })
+  }
 })
 
 export default router

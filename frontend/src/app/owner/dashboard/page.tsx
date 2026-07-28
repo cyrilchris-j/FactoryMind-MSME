@@ -4,391 +4,438 @@ import { OwnerLayout } from '@/components/layout/owner-layout';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  TrendingUp, TrendingDown, Activity, Zap, Users, Package,
-  Wrench, AlertTriangle, Bot, RefreshCw, Target, CheckCircle2, Clock, Factory
+  Factory, Target, AlertTriangle, CheckCircle2, XCircle,
+  Activity, Wrench, Users, Zap, Sparkles, Send,
+  TrendingUp, Package, ShieldAlert, Clock, ArrowRight
 } from 'lucide-react';
-import { useEffect, useState, useCallback } from 'react';
-import { useAuth } from '@/components/auth/auth-provider';
-import Link from 'next/link';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { apiGet } from '@/lib/api';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import Link from 'next/link';
 
-interface ManufacturingKPI {
+interface BomItem {
+  componentName: string;
+  componentCode: string;
+  available: number;
+  totalRequired: number;
+  shortage: number;
+  isReady: boolean;
+  status: string;
+  requiredPerProduct: number;
+}
+
+interface CriticalIssue {
+  type: string;
+  title: string;
+  description: string;
+  severity: string;
+}
+
+interface PrimaryOrder {
+  orderNumber: string;
+  customerName: string;
+  quantity: number;
+  completedQuantity: number;
+  remaining: number;
+  dueDate: string;
+  priority: string;
+  status: string;
+}
+
+interface KpiData {
   factoryName: string;
-  industry: string;
+  productName: string;
+  date: string;
   productionTarget: number;
   completedProduction: number;
+  wip: number;
+  remaining: number;
   productionAchievement: number;
+  rejectedQuantity: number;
   rejectionRate: string;
   totalDowntime: number;
+  bomReadiness: BomItem[];
+  componentsReady: number;
+  componentsTotal: number;
   maxBuildable: number;
   materialReadiness: number;
-  criticalShortages: number;
+  materialReady: boolean;
   primaryConstraint: string;
+  primaryConstraintShortage: number;
+  orderRiskStatus: string;
+  ordersAtRisk: number;
+  primaryOrder: PrimaryOrder | null;
   totalMachines: number;
   runningMachines: number;
   breakdownMachines: number;
   maintenanceMachines: number;
   machineUtilization: number;
+  breakdownMachinesList: { machineCode: string; machineName: string }[];
+  activeMaintenance: number;
   totalWorkers: number;
   presentWorkers: number;
+  absentWorkers: number;
   workerAttendance: number;
-  ordersAtRisk: number;
   totalEnergyKwh: number;
   energyPerUnit: string;
+  qualityPassRate: string;
+  totalInspected: number;
+  criticalIssues: CriticalIssue[];
 }
 
-function SkeletonCard() {
-  return (
-    <div className="p-4 md:p-6 rounded-xl border border-border bg-white animate-pulse">
-      <div className="flex items-start justify-between mb-4">
-        <div className="w-10 h-10 bg-gray-200 rounded-lg" />
-        <div className="w-12 h-4 bg-gray-200 rounded" />
-      </div>
-      <div className="h-3 bg-gray-200 rounded w-24 mb-2" />
-      <div className="h-7 bg-gray-200 rounded w-20" />
-    </div>
-  );
-}
-
-export default function DashboardPage() {
-  const { user } = useAuth();
-  const [kpi, setKpi] = useState<ManufacturingKPI | null>(null);
+export default function OwnerDashboard() {
+  const [kpi, setKpi] = useState<KpiData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
-  const [realtimeUpdates, setRealtimeUpdates] = useState(0);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [aiInput, setAiInput] = useState('');
+  const [aiResponse, setAiResponse] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  };
-
-  const fetchKPI = useCallback(async () => {
+  const fetchKpis = useCallback(async () => {
     try {
       const data: any = await apiGet('/api/manufacturing-kpis');
       setKpi(data);
     } catch (err) {
-      console.error('Failed to fetch manufacturing KPIs', err);
-    } finally {
-      setLoading(false);
-      setMounted(true);
-      setLastUpdated(new Date());
+      console.error('Failed to fetch KPIs', err);
     }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    fetchKPI();
-  }, [fetchKPI]);
+    fetchKpis();
+    const interval = setInterval(fetchKpis, 30000);
+    return () => clearInterval(interval);
+  }, [fetchKpis]);
 
-  useEffect(() => {
-    if (!user?.factoryId) return;
+  const handleAiAsk = async () => {
+    if (!aiInput.trim()) return;
+    setAiLoading(true);
+    setAiResponse('');
+    try {
+      const res = await fetch('/api/backend/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: aiInput, history: [] }),
+      });
+      const data = await res.json();
+      if (data.structured && data.data) {
+        setAiResponse(data.data.summary);
+      } else {
+        setAiResponse(data.text || 'No response.');
+      }
+    } catch {
+      setAiResponse('Failed to get AI response.');
+    }
+    setAiLoading(false);
+  };
 
-    const prodQ = query(
-      collection(db, 'production'),
-      where('factoryId', '==', user.factoryId)
+  const suggestedPrompts = [
+    'Why is production low today?',
+    'Can we complete today\'s order?',
+    'Which component is blocking production?',
+    'Which machine requires attention?',
+    'What should I prioritize today?',
+  ];
+
+  const riskColor = (status: string) => {
+    if (status === 'CRITICAL') return 'bg-red-500 text-white';
+    if (status === 'AT RISK') return 'bg-amber-500 text-white';
+    if (status === 'COMPLETED') return 'bg-green-500 text-white';
+    return 'bg-emerald-500 text-white';
+  };
+
+  const issueIcon = (type: string) => {
+    if (type === 'material') return <Package className="w-4 h-4" />;
+    if (type === 'machine') return <Wrench className="w-4 h-4" />;
+    if (type === 'quality') return <ShieldAlert className="w-4 h-4" />;
+    if (type === 'workforce') return <Users className="w-4 h-4" />;
+    if (type === 'order') return <Clock className="w-4 h-4" />;
+    return <AlertTriangle className="w-4 h-4" />;
+  };
+
+  const issueSeverityColor = (sev: string) => {
+    if (sev === 'critical') return 'bg-red-50 border-red-200 text-red-800';
+    return 'bg-amber-50 border-amber-200 text-amber-800';
+  };
+
+  if (loading) {
+    return (
+      <OwnerLayout>
+        <div className="p-8 flex items-center justify-center h-[calc(100vh-64px)]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-muted text-sm">Loading factory data...</p>
+          </div>
+        </div>
+      </OwnerLayout>
     );
-    const unsubProd = onSnapshot(prodQ, () => {
-      setRealtimeUpdates(c => c + 1);
-    });
+  }
 
-    const notifQ = query(
-      collection(db, 'notifications'),
-      where('factoryId', '==', user.factoryId),
-      where('isRead', '==', false)
+  if (!kpi) {
+    return (
+      <OwnerLayout>
+        <div className="p-8">
+          <p className="text-muted">Unable to load dashboard data.</p>
+        </div>
+      </OwnerLayout>
     );
-    const unsubNotif = onSnapshot(notifQ, () => {
-      setRealtimeUpdates(c => c + 1);
-    });
-
-    return () => { unsubProd(); unsubNotif(); };
-  }, [user?.factoryId]);
-
-  const isHighRisk = kpi && (
-    kpi.productionAchievement < 70 ||
-    kpi.criticalShortages > 0 ||
-    kpi.breakdownMachines > 0 ||
-    kpi.ordersAtRisk > 0
-  );
-
-  const kpiCards = kpi ? [
-    {
-      title: 'Production Target',
-      value: kpi.productionTarget.toLocaleString(),
-      unit: 'units',
-      trend: '',
-      trendUp: true,
-      icon: Target,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10',
-    },
-    {
-      title: 'Completed',
-      value: kpi.completedProduction.toLocaleString(),
-      unit: 'units',
-      trend: '',
-      trendUp: true,
-      icon: CheckCircle2,
-      color: 'text-accent',
-      bgColor: 'bg-accent/10',
-    },
-    {
-      title: 'Production Achievement',
-      value: `${kpi.productionAchievement}`,
-      unit: '%',
-      trend: kpi.productionAchievement >= 80 ? 'On track' : 'Below target',
-      trendUp: kpi.productionAchievement >= 80,
-      icon: Activity,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10',
-    },
-    {
-      title: 'Material Readiness',
-      value: `${kpi.materialReadiness}`,
-      unit: '%',
-      trend: kpi.criticalShortages > 0 ? `${kpi.criticalShortages} shortages` : 'All stocked',
-      trendUp: kpi.criticalShortages === 0,
-      icon: Package,
-      color: 'text-secondary',
-      bgColor: 'bg-[#4F6D7A]/10',
-    },
-    {
-      title: 'Maximum Buildable',
-      value: kpi.maxBuildable.toLocaleString(),
-      unit: 'units',
-      trend: `Constraint: ${kpi.primaryConstraint || 'None'}`,
-      trendUp: kpi.maxBuildable >= kpi.productionTarget,
-      icon: Factory,
-      color: 'text-accent',
-      bgColor: 'bg-accent/10',
-    },
-    {
-      title: 'Critical Shortages',
-      value: `${kpi.criticalShortages}`,
-      unit: 'items',
-      trend: kpi.criticalShortages > 0 ? 'Needs attention' : 'None',
-      trendUp: kpi.criticalShortages === 0,
-      icon: AlertTriangle,
-      color: 'text-danger',
-      bgColor: 'bg-[#D93025]/10',
-    },
-    {
-      title: 'Machines Running',
-      value: `${kpi.runningMachines}/${kpi.totalMachines}`,
-      unit: '',
-      trend: `${kpi.machineUtilization}% utilization`,
-      trendUp: kpi.machineUtilization >= 70,
-      icon: Wrench,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10',
-    },
-    {
-      title: 'Machine Downtime',
-      value: `${Math.round(kpi.totalDowntime / 60)}`,
-      unit: 'hrs',
-      trend: kpi.breakdownMachines > 0 ? `${kpi.breakdownMachines} breakdown(s)` : 'Normal',
-      trendUp: kpi.breakdownMachines === 0,
-      icon: Clock,
-      color: 'text-warning',
-      bgColor: 'bg-warning/10',
-    },
-    {
-      title: 'Worker Attendance',
-      value: `${kpi.workerAttendance}`,
-      unit: '%',
-      trend: `${kpi.presentWorkers}/${kpi.totalWorkers} present`,
-      trendUp: kpi.workerAttendance >= 90,
-      icon: Users,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10',
-    },
-    {
-      title: 'Orders at Risk',
-      value: `${kpi.ordersAtRisk}`,
-      unit: 'orders',
-      trend: kpi.ordersAtRisk > 0 ? 'Requires action' : 'All clear',
-      trendUp: kpi.ordersAtRisk === 0,
-      icon: AlertTriangle,
-      color: 'text-danger',
-      bgColor: 'bg-[#D93025]/10',
-    },
-    {
-      title: 'Rejection Rate',
-      value: kpi.rejectionRate,
-      unit: '%',
-      trend: 'Of total produced',
-      trendUp: parseFloat(kpi.rejectionRate) < 3,
-      icon: Activity,
-      color: 'text-secondary',
-      bgColor: 'bg-[#4F6D7A]/10',
-    },
-    {
-      title: 'Energy / Unit',
-      value: kpi.energyPerUnit,
-      unit: 'kWh',
-      trend: 'Per brake assembly',
-      trendUp: true,
-      icon: Zap,
-      color: 'text-accent',
-      bgColor: 'bg-accent/10',
-    },
-  ] : [];
+  }
 
   return (
     <OwnerLayout>
-      <div className="space-y-6">
-        {/* Hero Banner */}
-        <div className={`rounded-xl p-6 md:p-8 text-white ${isHighRisk ? 'bg-linear-to-r from-danger to-red-700' : 'bg-linear-to-r from-primary to-secondary'}`}>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-2xl md:text-3xl font-bold">
-                  {getGreeting()}, {user?.name?.split(' ')[0] || 'Owner'}
-                </h1>
-                {realtimeUpdates > 0 && (
-                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/20 text-green-100 text-xs font-medium animate-pulse">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                    Live
-                  </span>
-                )}
-              </div>
-              <p className="text-white/80 text-lg font-semibold">{kpi?.factoryName || 'Prime Auto Components'}</p>
-              <p className="text-white/60 text-sm">{kpi?.industry || 'Automotive Component Manufacturing'}</p>
+      <div className="p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto">
+        {/* ── SECTION 1: Factory Status Header ── */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Factory className="w-5 h-5 text-primary" />
+              <h1 className="text-xl font-bold text-foreground">{kpi.factoryName}</h1>
             </div>
-            <button
-              onClick={() => { setLoading(true); fetchKPI(); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition-colors"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Refresh
-            </button>
+            <p className="text-sm text-muted">
+              {kpi.productName} • {new Date(kpi.date).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
           </div>
-
-          <p className="text-white/70 text-sm mb-3 font-medium">Today's Factory Overview</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-white/60 text-xs mb-1">Production Achievement</p>
-              <p className="text-2xl font-bold">{loading ? '—' : `${kpi?.productionAchievement ?? 0}%`}</p>
-            </div>
-            <div>
-              <p className="text-white/60 text-xs mb-1">Machine Utilization</p>
-              <p className="text-2xl font-bold">{loading ? '—' : `${kpi?.machineUtilization ?? 0}%`}</p>
-            </div>
-            <div>
-              <p className="text-white/60 text-xs mb-1">Worker Attendance</p>
-              <p className="text-2xl font-bold">{loading ? '—' : `${kpi?.workerAttendance ?? 0}%`}</p>
-            </div>
-            <div>
-              <p className="text-white/60 text-xs mb-1">Orders at Risk</p>
-              <p className="text-2xl font-bold">{loading ? '—' : kpi?.ordersAtRisk ?? 0}</p>
-            </div>
+          <div className="flex items-center gap-3">
+            {kpi.primaryOrder && (
+              <div className="text-right text-sm">
+                <p className="font-medium text-foreground">{kpi.primaryOrder.orderNumber}</p>
+                <p className="text-muted text-xs">{kpi.primaryOrder.customerName} • {kpi.primaryOrder.quantity} units</p>
+              </div>
+            )}
+            <span className={`px-4 py-2 rounded-full text-sm font-bold ${riskColor(kpi.orderRiskStatus)}`}>
+              {kpi.orderRiskStatus}
+            </span>
           </div>
         </div>
 
-        {/* Production Readiness Card */}
-        {kpi && (
-          <Card className={`p-5 border-2 ${kpi.criticalShortages > 0 || kpi.breakdownMachines > 0 ? 'border-warning/30 bg-warning/[0.02]' : 'border-accent/20 bg-accent/[0.02]'}`}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-                <Activity className="w-5 h-5 text-primary" />
-                PRODUCTION READINESS
-              </h2>
-              <Badge className={kpi.criticalShortages > 0 || kpi.ordersAtRisk > 0 ? 'bg-danger/10 text-danger' : 'bg-accent/10 text-accent'}>
-                {kpi.criticalShortages > 0 || kpi.ordersAtRisk > 0 ? 'AT RISK' : 'ON TRACK'}
-              </Badge>
+        {/* ── Production Summary Cards ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-muted font-medium uppercase tracking-wide">Target</span>
+              <Target className="w-4 h-4 text-muted" />
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              <div>
-                <p className="text-xs text-muted mb-0.5">Target</p>
-                <p className="text-xl font-bold text-foreground">{kpi.productionTarget.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted mb-0.5">Completed</p>
-                <p className="text-xl font-bold text-accent">{kpi.completedProduction.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted mb-0.5">Remaining</p>
-                <p className="text-xl font-bold text-warning">{Math.max(0, kpi.productionTarget - kpi.completedProduction).toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted mb-0.5">Buildable Now</p>
-                <p className={`text-xl font-bold ${kpi.maxBuildable >= kpi.productionTarget ? 'text-accent' : 'text-danger'}`}>
-                  {kpi.maxBuildable.toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted mb-0.5">Primary Constraint</p>
-                <p className="text-lg font-bold text-danger">{kpi.primaryConstraint}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted mb-0.5">Shortage</p>
-                <p className="text-xl font-bold text-danger">{Math.max(0, kpi.productionTarget - kpi.maxBuildable).toLocaleString()}</p>
-              </div>
-            </div>
+            <p className="text-2xl font-bold font-numbers text-foreground">{kpi.productionTarget}</p>
+            <p className="text-xs text-muted">assemblies</p>
           </Card>
-        )}
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-muted font-medium uppercase tracking-wide">Completed</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            </div>
+            <p className="text-2xl font-bold font-numbers text-foreground">{kpi.completedProduction}</p>
+            <p className="text-xs text-muted">{kpi.productionAchievement}% of target</p>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-muted font-medium uppercase tracking-wide">Remaining</span>
+              <Activity className="w-4 h-4 text-amber-500" />
+            </div>
+            <p className="text-2xl font-bold font-numbers text-foreground">{kpi.remaining}</p>
+            <p className="text-xs text-muted">to produce</p>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-muted font-medium uppercase tracking-wide">Max Buildable</span>
+              <TrendingUp className="w-4 h-4 text-primary" />
+            </div>
+            <p className="text-2xl font-bold font-numbers text-foreground">{kpi.maxBuildable}</p>
+            <p className="text-xs text-muted">with current stock</p>
+          </Card>
+        </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {loading
-            ? Array.from({ length: 12 }).map((_, i) => <SkeletonCard key={i} />)
-            : kpiCards.map((kpiItem, index) => (
-              <Card key={index} className="p-4 md:p-5 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-3">
-                  <div className={`p-2.5 rounded-lg ${kpiItem.bgColor}`}>
-                    <kpiItem.icon className={`w-4 h-4 ${kpiItem.color}`} />
+        {/* ── SECTION 2: BOM Readiness ── */}
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-bold text-foreground">Brake Assembly Readiness</h2>
+              <p className="text-xs text-muted mt-0.5">BOM component availability for {kpi.primaryOrder?.quantity || 250} units order</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className={`text-sm font-bold px-3 py-1 rounded-full ${kpi.materialReady ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                {kpi.componentsReady}/{kpi.componentsTotal} Ready
+              </span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            {kpi.bomReadiness.map((comp) => (
+              <div
+                key={comp.componentCode}
+                className={`p-3 rounded-xl border transition-all ${
+                  comp.isReady
+                    ? 'bg-emerald-50/60 border-emerald-200'
+                    : comp.status === 'CRITICAL'
+                    ? 'bg-red-50/60 border-red-200'
+                    : 'bg-amber-50/60 border-amber-200'
+                }`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  {comp.isReady ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                  )}
+                  <span className="text-[10px] font-medium text-muted">×{comp.requiredPerProduct}</span>
+                </div>
+                <p className="text-xs font-semibold text-foreground leading-tight mb-1">{comp.componentName}</p>
+                <div className="space-y-0.5">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-muted">Available</span>
+                    <span className="font-numbers font-medium">{comp.available}</span>
                   </div>
-                  {kpiItem.trend && (
-                    <div className={`flex items-center text-xs font-medium ${kpiItem.trendUp ? 'text-accent' : 'text-danger'}`}>
-                      {kpiItem.trendUp ? <TrendingUp className="w-3.5 h-3.5 mr-1" /> : <TrendingDown className="w-3.5 h-3.5 mr-1" />}
-                      {kpiItem.trend}
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-muted">Required</span>
+                    <span className="font-numbers font-medium">{comp.totalRequired}</span>
+                  </div>
+                  {comp.shortage > 0 && (
+                    <div className="flex justify-between text-[10px] text-red-600 font-bold">
+                      <span>Shortage</span>
+                      <span className="font-numbers">{comp.shortage}</span>
                     </div>
                   )}
                 </div>
-                <p className="text-muted text-xs mb-1">{kpiItem.title}</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {kpiItem.value}
-                  {kpiItem.unit && <span className="text-sm font-normal text-muted ml-1">{kpiItem.unit}</span>}
-                </p>
-              </Card>
-            ))
-          }
-        </div>
-
-        {/* Quick Actions */}
-        <Card className="p-5">
-          <h2 className="text-base font-semibold text-foreground mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Link href="/owner/production" className="p-4 border border-border rounded-xl hover:bg-background hover:border-primary/30 transition-all text-left group">
-              <Activity className="w-5 h-5 text-primary mb-2" />
-              <p className="font-medium text-foreground text-sm">View Production</p>
-              <p className="text-xs text-muted">Shift output & targets</p>
-            </Link>
-            <Link href="/owner/products" className="p-4 border border-border rounded-xl hover:bg-background hover:border-primary/30 transition-all text-left group">
-              <Package className="w-5 h-5 text-primary mb-2" />
-              <p className="font-medium text-foreground text-sm">Products & BOM</p>
-              <p className="text-xs text-muted">Bill of Materials</p>
-            </Link>
-            <Link href="/owner/inventory" className="p-4 border border-border rounded-xl hover:bg-background hover:border-secondary/30 transition-all text-left">
-              <Package className="w-5 h-5 text-secondary mb-2" />
-              <p className="font-medium text-foreground text-sm">Inventory</p>
-              <p className="text-xs text-muted">Component stock</p>
-            </Link>
-            <Link href="/owner/ai-copilot" className="p-4 border border-border rounded-xl hover:bg-background hover:border-purple-300 transition-all text-left">
-              <Bot className="w-5 h-5 text-purple-600 mb-2" />
-              <p className="font-medium text-foreground text-sm">Ask AI</p>
-              <p className="text-xs text-muted">Get insights</p>
-            </Link>
+              </div>
+            ))}
           </div>
+          {!kpi.materialReady && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 text-sm">
+              <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+              <div>
+                <span className="font-semibold text-red-800">Primary Constraint: </span>
+                <span className="text-red-700">{kpi.primaryConstraint} — {kpi.primaryConstraintShortage} units short. Max buildable: {kpi.maxBuildable} assemblies.</span>
+              </div>
+            </div>
+          )}
         </Card>
 
-        <p className="text-center text-xs text-muted">
-          Dashboard data last refreshed at {mounted ? lastUpdated.toLocaleTimeString() : ''}
-          {realtimeUpdates > 0 && ` · ${realtimeUpdates} realtime update${realtimeUpdates > 1 ? 's' : ''} received`}
-        </p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* ── SECTION 3: Critical Issues ── */}
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-foreground">Critical Issues</h2>
+              <Badge className={kpi.criticalIssues.length > 0 ? 'bg-red-100 text-red-700 border-red-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}>
+                {kpi.criticalIssues.length} active
+              </Badge>
+            </div>
+            {kpi.criticalIssues.length === 0 ? (
+              <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <p className="text-sm text-emerald-700 font-medium">No critical issues. Factory operating normally.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {kpi.criticalIssues.map((issue, idx) => (
+                  <div key={idx} className={`flex items-start gap-3 p-3 rounded-lg border ${issueSeverityColor(issue.severity)}`}>
+                    <div className="mt-0.5">{issueIcon(issue.type)}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold">{issue.title}</p>
+                      <p className="text-xs opacity-80">{issue.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* ── SECTION 4: Production & Machine Status ── */}
+          <Card className="p-5">
+            <h2 className="text-base font-bold text-foreground mb-4">Factory Operations</h2>
+            <div className="space-y-4">
+              {/* Production Progress */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-sm font-medium text-foreground">Production Progress</span>
+                  <span className="text-sm font-bold font-numbers">{kpi.productionAchievement}%</span>
+                </div>
+                <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${kpi.productionAchievement >= 90 ? 'bg-emerald-500' : kpi.productionAchievement >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                    style={{ width: `${Math.min(100, kpi.productionAchievement)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Machine Status */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center p-3 bg-emerald-50 rounded-lg">
+                  <p className="text-lg font-bold font-numbers text-emerald-700">{kpi.runningMachines}</p>
+                  <p className="text-[10px] font-medium text-emerald-600 uppercase">Running</p>
+                </div>
+                <div className="text-center p-3 bg-red-50 rounded-lg">
+                  <p className="text-lg font-bold font-numbers text-red-700">{kpi.breakdownMachines}</p>
+                  <p className="text-[10px] font-medium text-red-600 uppercase">Breakdown</p>
+                </div>
+                <div className="text-center p-3 bg-amber-50 rounded-lg">
+                  <p className="text-lg font-bold font-numbers text-amber-700">{kpi.maintenanceMachines}</p>
+                  <p className="text-[10px] font-medium text-amber-600 uppercase">Maintenance</p>
+                </div>
+              </div>
+
+              {/* Quick Stats Row */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                  <Users className="w-4 h-4 text-primary" />
+                  <div>
+                    <p className="text-xs text-muted">Workforce</p>
+                    <p className="text-sm font-bold font-numbers">{kpi.presentWorkers}/{kpi.totalWorkers} <span className="text-xs font-normal text-muted">({kpi.workerAttendance}%)</span></p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                  <Clock className="w-4 h-4 text-amber-500" />
+                  <div>
+                    <p className="text-xs text-muted">Downtime</p>
+                    <p className="text-sm font-bold font-numbers">{kpi.totalDowntime} <span className="text-xs font-normal text-muted">min</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* ── SECTION 5: AI Factory Copilot Quick Ask ── */}
+        <Card className="p-5 bg-gradient-to-r from-slate-50 to-purple-50/30 border-purple-100/50">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-5 h-5 text-purple-600" />
+            <h2 className="text-base font-bold text-foreground">AI Factory Copilot</h2>
+            <Link href="/owner/ai-copilot" className="ml-auto text-xs text-primary hover:underline flex items-center gap-1">
+              Open Full Chat <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-3">
+            {suggestedPrompts.map((prompt, i) => (
+              <button
+                key={i}
+                onClick={() => { setAiInput(prompt); setAiResponse(''); }}
+                className="text-xs px-3 py-1.5 rounded-full bg-white border border-purple-200 text-purple-700 hover:bg-purple-100 transition-colors"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={aiInput}
+              onChange={(e) => setAiInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAiAsk()}
+              placeholder="Ask FactoryMind about today's factory operations..."
+              className="flex-1 px-4 py-2.5 rounded-xl border border-purple-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
+            />
+            <button
+              onClick={handleAiAsk}
+              disabled={aiLoading || !aiInput.trim()}
+              className="px-4 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+            >
+              {aiLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {aiResponse && (
+            <div className="mt-3 p-3 bg-white rounded-xl border border-purple-100 text-sm text-foreground leading-relaxed">
+              {aiResponse}
+            </div>
+          )}
+        </Card>
       </div>
     </OwnerLayout>
   );

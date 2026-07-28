@@ -13,16 +13,71 @@ import {
   ChevronLeft,
   ChevronRight,
   Factory as FactoryIcon,
+  Package,
+  Wrench,
+  ShieldCheck,
+  Users,
+  Zap,
+  ShoppingCart,
+  UploadCloud,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/auth-provider';
 
-const navigation = [
+const allNavigation = {
+  Inventory: [
+    { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
+    { name: 'Component Inventory', href: '/manager/inventory', icon: Package },
+    { name: 'Add Stock', href: '/manager/inventory?tab=add', icon: Plus },
+    { name: 'Upload Excel/CSV', href: '/manager/inventory?tab=upload', icon: UploadCloud },
+    { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
+  ],
+  Production: [
+    { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
+    { name: 'Production Entry', href: '/manager/production', icon: Plus },
+    { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
+  ],
+  Maintenance: [
+    { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
+    { name: 'Maintenance Entry', href: '/manager/maintenance', icon: Wrench },
+    { name: 'Machine Status', href: '/manager/maintenance?tab=machines', icon: Wrench },
+    { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
+  ],
+  Quality: [
+    { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
+    { name: 'Quality Entry', href: '/manager/quality', icon: ShieldCheck },
+    { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
+  ],
+  Workforce: [
+    { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
+    { name: 'Attendance Entry', href: '/manager/workforce', icon: Users },
+    { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
+  ],
+  Energy: [
+    { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
+    { name: 'Energy Entry', href: '/manager/energy', icon: Zap },
+    { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
+  ],
+  Orders: [
+    { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
+    { name: 'Order Entry', href: '/manager/orders', icon: ShoppingCart },
+    { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
+  ],
+}
+
+const defaultNavigation = [
   { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
-  { name: 'Input Brake Parts', href: '/manager/data-entry', icon: Plus },
+  { name: 'Data Entry', href: '/manager/data-entry', icon: Plus },
   { name: 'Submission History', href: '/manager/history', icon: History },
   { name: 'Notifications', href: '/manager/notifications', icon: Bell },
-];
+]
 
 const bottomNav = [
   { name: 'Profile', href: '/profile', icon: UserCircle },
@@ -58,8 +113,10 @@ export function ManagerSidebar({ collapsed = false, onToggle, isMobile = false, 
     Sales: 'bg-green-600',
     Workforce: 'bg-purple-600',
   };
-  const dept = user?.department || 'Production';
-  const accentColor = deptColor[dept] || 'bg-primary';
+  const rawDept = user?.department || 'Production';
+  const dept = rawDept === 'Sales' ? 'Orders' : rawDept;
+  const accentColor = deptColor[rawDept] || 'bg-primary';
+  const navigation = allNavigation[dept as keyof typeof allNavigation] || defaultNavigation;
 
   return (
     <div
