@@ -21,6 +21,7 @@ import {
   Plus
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { apiGet, apiPost } from '@/lib/api';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -149,10 +150,13 @@ async function parseFile(file: File): Promise<ParsedRow[]> {
 
 export default function ManualDataEntryPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [activeTab, setActiveTab] = useState<'manual' | 'upload'>('manual');
+  const [activeTab, setActiveTab] = useState<'manual' | 'upload'>(
+    searchParams.get('tab') === 'upload' ? 'upload' : 'manual'
+  );
   const [machines, setMachines] = useState<Machine[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>('Brake Pad Set Heavy Duty');
   const [customProduct, setCustomProduct] = useState<string>('');

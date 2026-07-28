@@ -155,16 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       return {}
     } catch (err: any) {
-      // If user not found or invalid credentials, attempt auto-registration
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') {
-        const defaultName = email.split('@')[0];
-        const regResult = await register(email, password, defaultName, 'OWNER');
-        if (regResult.error && regResult.error.includes('email-already-in-use')) {
-          return { error: 'Invalid email or password' };
-        }
-        return regResult;
-      }
-      return { error: err.message || 'Login failed' }
+      return { error: 'Invalid email or password' }
     }
   }
 

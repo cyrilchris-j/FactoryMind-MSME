@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Plus,
-  Upload,
   History,
   Bell,
   UserCircle,
@@ -20,8 +19,7 @@ import { useAuth } from '@/components/auth/auth-provider';
 
 const navigation = [
   { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
-  { name: 'Add Data', href: '/manager/data-entry', icon: Plus },
-  { name: 'Upload Data', href: '/manager/uploads', icon: Upload },
+  { name: 'Input Brake Parts', href: '/manager/data-entry', icon: Plus },
   { name: 'Submission History', href: '/manager/history', icon: History },
   { name: 'Notifications', href: '/manager/notifications', icon: Bell },
 ];

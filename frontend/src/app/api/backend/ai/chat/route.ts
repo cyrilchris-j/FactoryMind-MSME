@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AQ.Ab8RN6Lgg8OxoCzIPjWDkE4gZ0lMlgfGisxzeePexS8K4enc7A';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 async function fetchLiveFactoryData() {
   const projectId = 'factorymind-msme';
@@ -37,6 +37,10 @@ async function fetchLiveFactoryData() {
 
 export async function POST(request: Request) {
   try {
+    if (!GEMINI_API_KEY) {
+      return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 500 });
+    }
+
     const { message, history } = await request.json();
 
     if (!message) {

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Bell, X, CheckCheck, AlertTriangle, Info, CheckCircle, Zap } from 'lucide-react';
 import { apiGet, apiPatch } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/components/auth/auth-provider';
 import Link from 'next/link';
 
 interface Notification {
@@ -58,6 +59,7 @@ function timeAgo(dateStr: string) {
 }
 
 export function NotificationDropdown() {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -203,7 +205,7 @@ export function NotificationDropdown() {
 
           <div className="p-3 border-t border-border bg-background">
             <Link
-              href="/owner/notifications"
+              href={user?.role === 'MANAGER' ? '/manager/notifications' : '/owner/notifications'}
               onClick={() => setOpen(false)}
               className="block text-center text-sm text-primary font-medium hover:underline"
             >
