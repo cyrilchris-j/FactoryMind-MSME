@@ -7,11 +7,28 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Cpu, CheckCircle2, AlertCircle, TrendingUp, TrendingDown,
-  RefreshCw, Send, Lightbulb, MessageSquare, Save
+  RefreshCw, Send, Lightbulb, MessageSquare, Save,
+  Zap, FileSpreadsheet, UploadCloud, Download, X, Loader2
 } from 'lucide-react';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/components/auth/auth-provider';
 import { apiGet, apiPost } from '@/lib/api';
+
+const REPORT_TEMPLATE_COLUMNS = ['date', 'shift', 'parts_produced', 'defects', 'energy_kwh', 'current_amps', 'notes'];
+
+function downloadReportTemplate() {
+  const headers = REPORT_TEMPLATE_COLUMNS.join(',');
+  const today = new Date().toISOString().split('T')[0];
+  const example = [today, 'Morning', '500', '5', '120', '15', 'Routine production'].join(',');
+  const csv = [headers, example].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'machine_production_report_template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function ManagerDashboardPage() {
   const { user } = useAuth();
@@ -23,7 +40,17 @@ export default function ManagerDashboardPage() {
 
   const [partsProduced, setPartsProduced] = useState('');
   const [defects, setDefects] = useState('');
+  const [energyKwh, setEnergyKwh] = useState('');
+  const [currentAmps, setCurrentAmps] = useState('');
   const [suggestion, setSuggestion] = useState('');
+
+  // Excel upload state
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploadStep, setUploadStep] = useState<'idle' | 'parsing' | 'preview' | 'uploading' | 'done'>('idle');
+  const [uploadRows, setUploadRows] = useState<any[]>([]);
+  const [uploadFileName, setUploadFileName] = useState('');
+  const [uploadResult, setUploadResult] = useState<any>(null);
+  const [uploadError, setUploadError] = useState('');
 
   const machineNumber = user?.machineNumber || 0;
 
@@ -43,6 +70,8 @@ export default function ManagerDashboardPage() {
       if (myRecord) {
         setPartsProduced(String(myRecord.partsProduced || ''));
         setDefects(String(myRecord.defects || ''));
+        setEnergyKwh(String(myRecord.energyKwh || ''));
+        setCurrentAmps(String(myRecord.currentAmps || ''));
       }
     } catch (err) {
       console.error('Failed to fetch machine data', err);
@@ -69,8 +98,10 @@ export default function ManagerDashboardPage() {
         machineNumber,
         partsProduced: parseInt(partsProduced) || 0,
         defects: parseInt(defects) || 0,
+        energyKwh: parseFloat(energyKwh) || 0,
+        currentAmps: parseFloat(currentAmps) || 0,
       });
-      setToast({ type: 'success', message: 'Production data saved!' });
+      setToast({ type: 'success', message: 'Production & energy data saved!' });
       await fetchMachineData();
     } catch (err: any) {
       setToast({ type: 'error', message: err.message || 'Failed to save' });
@@ -94,6 +125,61 @@ export default function ManagerDashboardPage() {
     setSuggestionSaving(false);
   };
 
+  const handleFile = useCallback(async (file: File) => {
+    if (!file) return;
+    setUploadFileName(file.name);
+    setUploadError('');
+    setUploadStep('parsing');
+    try {
+      const XLSX = await import('xlsx');
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      const rows = raw.map((r: any, i: number) => ({
+        date: r.date || '',
+        shift: r.shift || '',
+        parts_produced: Number(r.parts_produced || r.partsProduced || 0),
+        defects: Number(r.defects || 0),
+        energy_kwh: Number(r.energy_kwh || r.energyKwh || 0),
+        current_amps: Number(r.current_amps || r.currentAmps || 0),
+        notes: r.notes || '',
+        _row: i + 2,
+      }));
+      setUploadRows(rows);
+      setUploadStep('preview');
+    } catch (err: any) {
+      setUploadError('Failed to parse file: ' + err.message);
+      setUploadStep('idle');
+    }
+  }, []);
+
+  const handleConfirmUpload = async () => {
+    if (!uploadRows.length) return;
+    setUploadStep('uploading');
+    try {
+      const result = await apiPost('/api/production-reports', {
+        machineNumber,
+        records: uploadRows,
+      });
+      setUploadResult(result);
+      setUploadStep('done');
+      setToast({ type: 'success', message: `Report uploaded with ${uploadRows.length} records!` });
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload failed');
+      setUploadStep('preview');
+    }
+  };
+
+  const resetUpload = () => {
+    setUploadRows([]);
+    setUploadFileName('');
+    setUploadResult(null);
+    setUploadError('');
+    setUploadStep('idle');
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
   const defectRate = machineData && machineData.partsProduced > 0
     ? ((machineData.defects / machineData.partsProduced) * 100).toFixed(1)
     : '0.0';
@@ -105,7 +191,7 @@ export default function ManagerDashboardPage() {
           <div className="text-center">
             <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
             <h2 className="text-lg font-bold text-foreground">No Machine Assigned</h2>
-            <p className="text-sm text-muted mt-1">You don't have a machine assigned. Contact the factory owner.</p>
+            <p className="text-sm text-muted mt-1">Contact the factory owner to get your machine assignment.</p>
           </div>
         </div>
       </ManagerLayout>
@@ -150,148 +236,183 @@ export default function ManagerDashboardPage() {
           </div>
         </div>
 
-        {/* Today's Status Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted">Today's Production</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {loading ? '—' : machineData?.partsProduced ?? 0}
-                </p>
-              </div>
-            </div>
+        {/* Status Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card className="p-4">
+            <p className="text-[10px] text-muted uppercase tracking-wide mb-1">Production</p>
+            <p className="text-xl font-bold text-foreground">{loading ? '—' : machineData?.partsProduced ?? 0}</p>
           </Card>
-
-          <Card className="p-5">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${parseFloat(defectRate) > 5 ? 'bg-red-50' : 'bg-amber-50'}`}>
-                {parseFloat(defectRate) > 5
-                  ? <TrendingDown className="w-5 h-5 text-red-600" />
-                  : <TrendingUp className="w-5 h-5 text-amber-600" />
-                }
-              </div>
-              <div>
-                <p className="text-xs text-muted">Today's Defects</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {loading ? '—' : machineData?.defects ?? 0}
-                </p>
-                <p className="text-xs text-muted">{defectRate}% defect rate</p>
-              </div>
-            </div>
+          <Card className="p-4">
+            <p className="text-[10px] text-muted uppercase tracking-wide mb-1">Defects</p>
+            <p className="text-xl font-bold text-foreground">{loading ? '—' : machineData?.defects ?? 0}</p>
+            <p className="text-[10px] text-muted">{defectRate}%</p>
           </Card>
-
-          <Card className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center">
-                <Cpu className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted">Good Parts</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {loading ? '—' : (machineData?.partsProduced ?? 0) - (machineData?.defects ?? 0)}
-                </p>
-              </div>
-            </div>
+          <Card className="p-4">
+            <p className="text-[10px] text-muted uppercase tracking-wide mb-1">Good Parts</p>
+            <p className="text-xl font-bold text-green-600">{loading ? '—' : (machineData?.partsProduced ?? 0) - (machineData?.defects ?? 0)}</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-[10px] text-muted uppercase tracking-wide mb-1">Energy (kWh)</p>
+            <p className="text-xl font-bold text-foreground">{loading ? '—' : machineData?.energyKwh ?? 0}</p>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Production Entry */}
-          <Card className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <TrendingUp className="w-5 h-5 text-primary" />
-              <h2 className="text-base font-bold text-foreground">Record Today's Production</h2>
-            </div>
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="partsProduced">Parts Produced Today</Label>
-                <Input
-                  id="partsProduced"
-                  type="number"
-                  min="0"
-                  placeholder="e.g. 500"
-                  value={partsProduced}
-                  onChange={(e) => setPartsProduced(e.target.value)}
-                />
+        {/* Main Grid: Left (Production + Energy), Right (Upload + Suggestion) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left: Production & Energy Entry */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="w-5 h-5 text-primary" />
+                <h2 className="text-base font-bold text-foreground">Record Today's Data</h2>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="defects">Defects / Rejects</Label>
-                <Input
-                  id="defects"
-                  type="number"
-                  min="0"
-                  placeholder="e.g. 5"
-                  value={defects}
-                  onChange={(e) => setDefects(e.target.value)}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Parts Produced</Label>
+                  <Input type="number" min="0" placeholder="e.g. 500" value={partsProduced} onChange={(e) => setPartsProduced(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Defects / Rejects</Label>
+                  <Input type="number" min="0" placeholder="e.g. 5" value={defects} onChange={(e) => setDefects(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Energy (kWh)</Label>
+                  <Input type="number" min="0" step="0.1" placeholder="e.g. 120.5" value={energyKwh} onChange={(e) => setEnergyKwh(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Current (Amps)</Label>
+                  <Input type="number" min="0" step="0.1" placeholder="e.g. 15.2" value={currentAmps} onChange={(e) => setCurrentAmps(e.target.value)} />
+                </div>
               </div>
-              <Button
-                onClick={handleSaveProduction}
-                disabled={saving}
-                className="w-full bg-primary hover:bg-primary/90 text-white"
-              >
-                {saving ? (
-                  <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
-                ) : (
-                  <><Save className="w-4 h-4 mr-2" /> Save Production</>
-                )}
+              <Button onClick={handleSaveProduction} disabled={saving} className="w-full mt-4 bg-primary hover:bg-primary/90 text-white">
+                {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : <><Save className="w-4 h-4 mr-2" /> Save All Data</>}
               </Button>
               {machineData?.updatedAt && (
-                <p className="text-xs text-muted text-center">
-                  Last updated: {new Date(machineData.updatedAt).toLocaleTimeString('en-IN')}
-                </p>
+                <p className="text-xs text-muted text-center mt-2">Last updated: {new Date(machineData.updatedAt).toLocaleTimeString('en-IN')}</p>
               )}
-            </div>
-          </Card>
+            </Card>
 
-          {/* Suggestions */}
-          <Card className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Lightbulb className="w-5 h-5 text-amber-500" />
-              <h2 className="text-base font-bold text-foreground">Submit a Suggestion</h2>
-            </div>
-            <p className="text-xs text-muted mb-3">
-              Share ideas or concerns about Machine {machineNumber}. Your suggestions will be visible to the factory owner.
-            </p>
-            <div className="space-y-4">
+            {/* Excel Upload Section */}
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-1">
+                <FileSpreadsheet className="w-5 h-5 text-green-600" />
+                <h2 className="text-base font-bold text-foreground">Upload Production Report</h2>
+              </div>
+              <p className="text-xs text-muted mb-4">Upload an Excel/CSV file with your daily production data.</p>
+
+              {uploadStep === 'done' && uploadResult ? (
+                <div className="p-6 bg-green-50 rounded-lg text-center border border-green-200">
+                  <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-green-800">Report Uploaded Successfully!</p>
+                  <p className="text-xs text-green-600 mt-1">{uploadRows.length} records submitted</p>
+                  <Button onClick={resetUpload} variant="outline" size="sm" className="mt-3">Upload Another</Button>
+                </div>
+              ) : uploadStep === 'uploading' ? (
+                <div className="p-6 text-center">
+                  <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-muted">Uploading report...</p>
+                </div>
+              ) : uploadStep === 'preview' ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{uploadFileName} ({uploadRows.length} rows)</span>
+                    <button onClick={resetUpload} className="text-xs text-muted hover:text-red-500"><X className="w-3.5 h-3.5 inline" /> Remove</button>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto border rounded-lg">
+                    <table className="w-full text-xs">
+                      <thead className="bg-background sticky top-0">
+                        <tr>
+                          <th className="text-left p-2">Date</th>
+                          <th className="text-left p-2">Shift</th>
+                          <th className="text-right p-2">Parts</th>
+                          <th className="text-right p-2">Defects</th>
+                          <th className="text-right p-2">kWh</th>
+                          <th className="text-right p-2">Amps</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {uploadRows.map((r, i) => (
+                          <tr key={i} className="border-t">
+                            <td className="p-2">{r.date}</td>
+                            <td className="p-2">{r.shift}</td>
+                            <td className="p-2 text-right">{r.parts_produced}</td>
+                            <td className="p-2 text-right">{r.defects}</td>
+                            <td className="p-2 text-right">{r.energy_kwh}</td>
+                            <td className="p-2 text-right">{r.current_amps}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" size="sm" onClick={resetUpload}>Cancel</Button>
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={handleConfirmUpload}>
+                      Upload Report
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="border-2 border-dashed border-green-300 rounded-xl p-6 text-center cursor-pointer hover:bg-green-50/50 transition-colors"
+                  onClick={() => fileRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+                >
+                  <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+                  {uploadStep === 'parsing' ? (
+                    <><Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-2" /><p className="text-xs text-muted">Parsing file...</p></>
+                  ) : (
+                    <>
+                      <UploadCloud className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                      <p className="text-sm font-medium text-foreground">Drop your Excel file here or click to browse</p>
+                    </>
+                  )}
+                </div>
+              )}
+              {uploadError && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">{uploadError}</div>
+              )}
+            </Card>
+          </div>
+
+          {/* Right Sidebar: Template + Suggestions */}
+          <div className="space-y-6">
+            {/* Template Download */}
+            <Card className="p-5 bg-gradient-to-br from-green-50/50 to-emerald-50/30 border-green-100/50">
+              <div className="flex items-center gap-2 mb-3">
+                <Download className="w-4 h-4 text-green-600" />
+                <h3 className="text-sm font-bold text-foreground">Excel Template</h3>
+              </div>
+              <p className="text-xs text-muted mb-3">Download the template with required columns:</p>
+              <div className="flex flex-wrap gap-1 mb-3">
+                {REPORT_TEMPLATE_COLUMNS.map((col) => (
+                  <span key={col} className="text-[10px] px-2 py-1 bg-white border border-border rounded font-mono">{col}</span>
+                ))}
+              </div>
+              <Button onClick={downloadReportTemplate} className="w-full bg-green-600 hover:bg-green-700 text-white text-xs gap-2">
+                <Download className="w-3.5 h-3.5" /> Download Template CSV
+              </Button>
+            </Card>
+
+            {/* Suggestions */}
+            <Card className="p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Lightbulb className="w-4 h-4 text-amber-500" />
+                <h3 className="text-sm font-bold text-foreground">Submit Suggestion</h3>
+              </div>
               <textarea
                 value={suggestion}
                 onChange={(e) => setSuggestion(e.target.value)}
-                placeholder="e.g. Machine 3 needs calibration, the guide pins are wearing faster than usual..."
+                placeholder="Share ideas or report issues..."
                 rows={3}
-                className="flex w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary mb-3"
               />
-              <Button
-                onClick={handleSubmitSuggestion}
-                disabled={suggestionSaving || !suggestion.trim()}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-              >
-                {suggestionSaving ? (
-                  <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Submitting...</>
-                ) : (
-                  <><Send className="w-4 h-4 mr-2" /> Submit Suggestion</>
-                )}
+              <Button onClick={handleSubmitSuggestion} disabled={suggestionSaving || !suggestion.trim()} className="w-full bg-amber-500 hover:bg-amber-600 text-white text-xs">
+                {suggestionSaving ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Submitting...</> : <><Send className="w-3.5 h-3.5 mr-1" /> Submit</>}
               </Button>
-            </div>
-          </Card>
-        </div>
-
-        {/* Tips */}
-        <Card className="p-5 bg-gradient-to-r from-blue-50/50 to-indigo-50/30 border-blue-100/50">
-          <div className="flex items-center gap-2 mb-2">
-            <MessageSquare className="w-4 h-4 text-blue-600" />
-            <h3 className="text-sm font-bold text-foreground">Machine {machineNumber} - Quick Tips</h3>
+            </Card>
           </div>
-          <ul className="text-xs text-muted space-y-1 list-disc pl-4">
-            <li>Update your production data daily so the owner can track factory output.</li>
-            <li>Report defects accurately to help improve quality control.</li>
-            <li>Use the suggestion box for maintenance requests or process improvements.</li>
-          </ul>
-        </Card>
+        </div>
       </div>
     </ManagerLayout>
   );

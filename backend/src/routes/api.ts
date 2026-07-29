@@ -1245,7 +1245,7 @@ router.get('/machine-production/today', async (req: AuthRequest, res: Response) 
 })
 
 router.post('/machine-production', async (req: AuthRequest, res: Response) => {
-  const { machineNumber, partsProduced, defects } = req.body
+  const { machineNumber, partsProduced, defects, energyKwh, currentAmps } = req.body
   if (!machineNumber || machineNumber < 1 || machineNumber > 10) {
     res.status(400).json({ error: 'machineNumber must be 1-10' })
     return
@@ -1269,6 +1269,8 @@ router.post('/machine-production', async (req: AuthRequest, res: Response) => {
         date: today,
         partsProduced: Number(partsProduced || 0),
         defects: Number(defects || 0),
+        energyKwh: Number(energyKwh || 0),
+        currentAmps: Number(currentAmps || 0),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
@@ -1277,6 +1279,8 @@ router.post('/machine-production', async (req: AuthRequest, res: Response) => {
       await adminDb.collection('machine_daily_production').doc(docId).update({
         partsProduced: Number(partsProduced || 0),
         defects: Number(defects || 0),
+        energyKwh: Number(energyKwh || 0),
+        currentAmps: Number(currentAmps || 0),
         managerName,
         updatedAt: new Date().toISOString(),
       })
@@ -1351,10 +1355,122 @@ router.get('/managers-with-machines', async (req: AuthRequest, res: Response) =>
       managerId: manager?.id || null,
       partsProduced: prod?.partsProduced || 0,
       defects: prod?.defects || 0,
+      energyKwh: prod?.energyKwh || 0,
+      currentAmps: prod?.currentAmps || 0,
       lastUpdated: prod?.updatedAt || null,
     })
   }
   res.json({ data: result, today })
+})
+
+// ── MACHINE ENERGY / CURRENT ─────────────────────────────────────────────────
+router.post('/machine-energy', async (req: AuthRequest, res: Response) => {
+  const { machineNumber, energyKwh, currentAmps } = req.body
+  if (!machineNumber || machineNumber < 1 || machineNumber > 10) {
+    res.status(400).json({ error: 'machineNumber must be 1-10' })
+    return
+  }
+  const today = new Date().toISOString().split('T')[0]
+  try {
+    const existingSnap = await adminDb.collection('machine_daily_production')
+      .where('factoryId', '==', req.factoryId!)
+      .where('machineNumber', '==', machineNumber)
+      .where('date', '==', today)
+      .get()
+    if (existingSnap.empty) {
+      await adminDb.collection('machine_daily_production').add({
+        factoryId: req.factoryId,
+        machineNumber,
+        managerId: req.uid,
+        managerName: req.name || '',
+        date: today,
+        energyKwh: Number(energyKwh || 0),
+        currentAmps: Number(currentAmps || 0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    } else {
+      await adminDb.collection('machine_daily_production').doc(existingSnap.docs[0].id).update({
+        energyKwh: Number(energyKwh || 0),
+        currentAmps: Number(currentAmps || 0),
+        updatedAt: new Date().toISOString(),
+      })
+    }
+    res.json({ success: true, message: 'Energy data saved' })
+  } catch (err) {
+    console.error('Failed to save energy data:', err)
+    res.status(500).json({ error: 'Failed to save energy data' })
+  }
+})
+
+// ── PRODUCTION REPORTS (Excel Upload) ────────────────────────────────────────
+router.post('/production-reports', async (req: AuthRequest, res: Response) => {
+  const { machineNumber, records } = req.body
+  if (!machineNumber || !Array.isArray(records)) {
+    res.status(400).json({ error: 'machineNumber and records array required' })
+    return
+  }
+  const managerName = req.name || 'Unknown'
+  try {
+    const docRef = await adminDb.collection('production_reports').add({
+      factoryId: req.factoryId,
+      machineNumber,
+      managerId: req.uid,
+      managerName,
+      records,
+      recordCount: records.length,
+      createdAt: new Date().toISOString(),
+    })
+    res.status(201).json({ id: docRef.id, message: 'Report uploaded' })
+  } catch (err) {
+    console.error('Failed to upload report:', err)
+    res.status(500).json({ error: 'Failed to upload report' })
+  }
+})
+
+router.get('/production-reports', async (req: AuthRequest, res: Response) => {
+  const { machineNumber } = req.query
+  let query: any = adminDb.collection('production_reports')
+    .where('factoryId', '==', req.factoryId!)
+  if (machineNumber) query = query.where('machineNumber', '==', Number(machineNumber))
+  const snap = await query.get()
+  let list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  list.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  res.json({ data: list })
+})
+
+// ── OWNER CREATES MANAGER ACCOUNT ────────────────────────────────────────────
+router.post('/auth/create-manager', async (req: AuthRequest, res: Response) => {
+  if (req.role !== 'OWNER') {
+    res.status(403).json({ error: 'Only owners can create managers' })
+    return
+  }
+  const { email, password, name, machineNumber } = req.body
+  if (!email || !password || !name || !machineNumber) {
+    res.status(400).json({ error: 'email, password, name, machineNumber required' })
+    return
+  }
+  if (machineNumber < 1 || machineNumber > 10) {
+    res.status(400).json({ error: 'machineNumber must be 1-10' })
+    return
+  }
+  try {
+    const { getAuth } = require('firebase-admin/auth')
+    const userRecord = await getAuth().createUser({ email, password, displayName: name })
+    await adminDb.collection('users').doc(userRecord.uid).set({
+      email,
+      name,
+      role: 'MANAGER',
+      machineNumber,
+      factoryId: req.factoryId,
+      department: 'Production',
+      createdAt: new Date().toISOString(),
+    })
+    res.status(201).json({ uid: userRecord.uid, message: `Manager ${name} created for Machine ${machineNumber}` })
+  } catch (err: any) {
+    console.error('Failed to create manager:', err)
+    res.status(400).json({ error: err.message || 'Failed to create manager' })
+  }
 })
 
 export default router
