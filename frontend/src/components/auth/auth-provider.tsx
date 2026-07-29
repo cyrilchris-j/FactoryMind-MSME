@@ -22,6 +22,7 @@ export interface AppUser {
   departmentId?: string
   factoryId?: string
   componentCode?: string
+  machineNumber?: number
 }
 
 interface AuthState {
@@ -55,6 +56,7 @@ async function fetchProfile(uid: string): Promise<AppUser | null> {
         departmentId: res.departmentId ?? undefined,
         factoryId: res.factoryId ?? undefined,
         componentCode: res.componentCode ?? undefined,
+        machineNumber: res.machineNumber ?? undefined,
       }
     }
   } catch (err: any) {
@@ -65,16 +67,17 @@ async function fetchProfile(uid: string): Promise<AppUser | null> {
     const docSnap = await getDoc(doc(db, 'users', uid))
     if (!docSnap.exists()) return null
     const data = docSnap.data()
-    return {
-      id: uid,
-      email: data.email,
-      name: data.name,
-      role: data.role as AppUser['role'],
-      department: data.department ?? undefined,
-      departmentId: data.departmentId ?? undefined,
-      factoryId: data.factoryId ?? undefined,
-      componentCode: data.componentCode ?? undefined,
-    }
+      return {
+        id: uid,
+        email: data.email,
+        name: data.name,
+        role: data.role as AppUser['role'],
+        department: data.department ?? undefined,
+        departmentId: data.departmentId ?? undefined,
+        factoryId: data.factoryId ?? undefined,
+        componentCode: data.componentCode ?? undefined,
+        machineNumber: data.machineNumber ?? undefined,
+      }
   } catch (err: any) {
     console.error("Error fetching profile:", err);
     return null;

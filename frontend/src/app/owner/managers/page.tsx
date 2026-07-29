@@ -4,17 +4,18 @@ import { OwnerLayout } from '@/components/layout/owner-layout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Users, 
-  UserPlus, 
-  Mail, 
-  Phone, 
+import {
+  Users,
+  UserPlus,
+  Mail,
+  Phone,
   Building2,
   MoreVertical,
   Loader2,
   RefreshCw,
   Search,
-  Filter
+  Filter,
+  Cpu
 } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
 import { apiGet } from '@/lib/api';
@@ -28,6 +29,7 @@ interface Manager {
   email: string;
   role: string;
   department: string;
+  machineNumber: number | null;
   created_at: string;
 }
 
@@ -46,6 +48,7 @@ export default function ManagersPage() {
         email: d.email || '',
         role: d.role || '',
         department: d.department || 'Unassigned',
+        machineNumber: d.machineNumber ?? null,
         created_at: d.createdAt || '',
       }));
       const filtered = search
@@ -126,9 +129,17 @@ export default function ManagersPage() {
                 <h3 className="text-lg font-semibold text-foreground mb-1">
                   {manager.full_name}
                 </h3>
-                <div className="flex items-center text-sm text-muted mb-4">
-                  <Building2 className="w-3.5 h-3.5 mr-1.5" />
-                  {manager.department} Department
+                <div className="flex items-center gap-3 text-sm text-muted mb-4">
+                  <div className="flex items-center">
+                    <Building2 className="w-3.5 h-3.5 mr-1.5" />
+                    {manager.department} Department
+                  </div>
+                  {manager.machineNumber && (
+                    <div className="flex items-center">
+                      <Cpu className="w-3.5 h-3.5 mr-1.5 text-blue-500" />
+                      Machine {manager.machineNumber}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2 mb-6">

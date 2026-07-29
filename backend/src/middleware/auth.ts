@@ -4,6 +4,7 @@ import { adminAuth, adminDb } from '../lib/firebase-admin'
 export interface AuthRequest extends Request {
   uid?: string
   email?: string
+  name?: string
   role?: string
   factoryId?: string
   departmentId?: string
@@ -35,6 +36,7 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
 
     req.uid = decoded.uid
     req.email = decoded.email || profile.email
+    req.name = profile.name as string
     req.role = profile.role as string
     req.factoryId = profile.factoryId as string
     req.departmentId = profile.departmentId as string

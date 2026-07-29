@@ -1233,4 +1233,128 @@ router.put('/customer-orders/:id', async (req: AuthRequest, res: Response) => {
   }
 })
 
+// ── MACHINE-WISE DAILY PRODUCTION ────────────────────────────────────────────
+router.get('/machine-production/today', async (req: AuthRequest, res: Response) => {
+  const today = new Date().toISOString().split('T')[0]
+  const snap = await adminDb.collection('machine_daily_production')
+    .where('factoryId', '==', req.factoryId!)
+    .where('date', '==', today)
+    .get()
+  const records = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  res.json({ data: records })
+})
+
+router.post('/machine-production', async (req: AuthRequest, res: Response) => {
+  const { machineNumber, partsProduced, defects } = req.body
+  if (!machineNumber || machineNumber < 1 || machineNumber > 10) {
+    res.status(400).json({ error: 'machineNumber must be 1-10' })
+    return
+  }
+  const today = new Date().toISOString().split('T')[0]
+  const managerName = req.name || 'Unknown'
+
+  const existingSnap = await adminDb.collection('machine_daily_production')
+    .where('factoryId', '==', req.factoryId!)
+    .where('machineNumber', '==', machineNumber)
+    .where('date', '==', today)
+    .get()
+
+  try {
+    if (existingSnap.empty) {
+      await adminDb.collection('machine_daily_production').add({
+        factoryId: req.factoryId,
+        machineNumber,
+        managerId: req.uid,
+        managerName,
+        date: today,
+        partsProduced: Number(partsProduced || 0),
+        defects: Number(defects || 0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    } else {
+      const docId = existingSnap.docs[0].id
+      await adminDb.collection('machine_daily_production').doc(docId).update({
+        partsProduced: Number(partsProduced || 0),
+        defects: Number(defects || 0),
+        managerName,
+        updatedAt: new Date().toISOString(),
+      })
+    }
+    res.json({ success: true, message: 'Production data saved' })
+  } catch (err) {
+    console.error('Failed to save machine production:', err)
+    res.status(500).json({ error: 'Failed to save production data' })
+  }
+})
+
+// ── MACHINE SUGGESTIONS ──────────────────────────────────────────────────────
+router.post('/machine-suggestions', async (req: AuthRequest, res: Response) => {
+  const { machineNumber, message } = req.body
+  if (!machineNumber || !message) {
+    res.status(400).json({ error: 'machineNumber and message are required' })
+    return
+  }
+  const managerName = req.name || 'Unknown'
+  try {
+    await adminDb.collection('machine_suggestions').add({
+      factoryId: req.factoryId,
+      machineNumber,
+      managerId: req.uid,
+      managerName,
+      message,
+      createdAt: new Date().toISOString(),
+      isRead: false,
+    })
+    res.status(201).json({ success: true, message: 'Suggestion submitted' })
+  } catch (err) {
+    console.error('Failed to save suggestion:', err)
+    res.status(500).json({ error: 'Failed to save suggestion' })
+  }
+})
+
+router.get('/machine-suggestions', async (req: AuthRequest, res: Response) => {
+  const snap = await adminDb.collection('machine_suggestions')
+    .where('factoryId', '==', req.factoryId!)
+    .get()
+  let list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  list.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  res.json({ data: list })
+})
+
+// ── MANAGERS WITH MACHINE INFO ──────────────────────────────────────────────
+router.get('/managers-with-machines', async (req: AuthRequest, res: Response) => {
+  const snap = await adminDb.collection('users')
+    .where('factoryId', '==', req.factoryId!)
+    .where('role', '==', 'MANAGER')
+    .get()
+  const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  const today = new Date().toISOString().split('T')[0]
+  const prodSnap = await adminDb.collection('machine_daily_production')
+    .where('factoryId', '==', req.factoryId!)
+    .where('date', '==', today)
+    .get()
+  const prodMap: Record<number, any> = {}
+  prodSnap.docs.forEach((d: any) => {
+    const data = d.data()
+    prodMap[data.machineNumber] = data
+  })
+
+  const result = []
+  for (let i = 1; i <= 10; i++) {
+    const manager = all.find((m: any) => m.machineNumber === i)
+    const prod = prodMap[i]
+    result.push({
+      machineNumber: i,
+      managerName: manager?.name || 'Unassigned',
+      managerEmail: manager?.email || '-',
+      managerId: manager?.id || null,
+      partsProduced: prod?.partsProduced || 0,
+      defects: prod?.defects || 0,
+      lastUpdated: prod?.updatedAt || null,
+    })
+  }
+  res.json({ data: result, today })
+})
+
 export default router

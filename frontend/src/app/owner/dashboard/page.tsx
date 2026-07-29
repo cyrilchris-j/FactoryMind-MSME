@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import {
   Factory, Target, AlertTriangle, CheckCircle2, XCircle,
   Activity, Wrench, Users, Zap, Sparkles, Send,
-  TrendingUp, Package, ShieldAlert, Clock, ArrowRight
+  TrendingUp, Package, ShieldAlert, Clock, ArrowRight,
+  Cpu, MessageSquare, Lightbulb, UserCircle
 } from 'lucide-react';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { apiGet } from '@/lib/api';
@@ -88,6 +89,10 @@ export default function OwnerDashboard() {
   const [aiInput, setAiInput] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [machinesData, setMachinesData] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [machinesLoading, setMachinesLoading] = useState(true);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
 
   const fetchKpis = useCallback(async () => {
     try {
@@ -99,11 +104,36 @@ export default function OwnerDashboard() {
     setLoading(false);
   }, []);
 
+  const fetchMachinesData = useCallback(async () => {
+    try {
+      const res: any = await apiGet('/api/managers-with-machines');
+      setMachinesData(res.data ?? []);
+    } catch (err) {
+      console.error('Failed to fetch machines data', err);
+    }
+    setMachinesLoading(false);
+  }, []);
+
+  const fetchSuggestions = useCallback(async () => {
+    try {
+      const res: any = await apiGet('/api/machine-suggestions');
+      setSuggestions(res.data ?? []);
+    } catch (err) {
+      console.error('Failed to fetch suggestions', err);
+    }
+    setSuggestionsLoading(false);
+  }, []);
+
   useEffect(() => {
     fetchKpis();
-    const interval = setInterval(fetchKpis, 30000);
+    fetchMachinesData();
+    fetchSuggestions();
+    const interval = setInterval(() => {
+      fetchKpis();
+      fetchMachinesData();
+    }, 30000);
     return () => clearInterval(interval);
-  }, [fetchKpis]);
+  }, [fetchKpis, fetchMachinesData, fetchSuggestions]);
 
   const handleAiAsk = async () => {
     if (!aiInput.trim()) return;
@@ -390,7 +420,116 @@ export default function OwnerDashboard() {
           </Card>
         </div>
 
-        {/* ── SECTION 5: AI Factory Copilot Quick Ask ── */}
+        {/* ── SECTION 5: Machine Production Overview ── */}
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Cpu className="w-5 h-5 text-primary" />
+              <h2 className="text-base font-bold text-foreground">Machine Production Overview</h2>
+            </div>
+            <span className="text-xs text-muted">
+              {machinesData.length > 0 ? `${machinesData.reduce((s: number, m: any) => s + (m.partsProduced || 0), 0)} total parts today` : ''}
+            </span>
+          </div>
+          {machinesLoading ? (
+            <div className="h-32 flex items-center justify-center">
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-background border-b border-border">
+                  <tr>
+                    <th className="text-left py-3 px-4 text-xs font-medium text-muted">Machine</th>
+                    <th className="text-left py-3 px-4 text-xs font-medium text-muted">Manager</th>
+                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Parts Produced</th>
+                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Defects</th>
+                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Defect %</th>
+                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Good Parts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {machinesData.map((m: any) => {
+                    const defectPct = m.partsProduced > 0 ? ((m.defects / m.partsProduced) * 100).toFixed(1) : '0.0';
+                    return (
+                      <tr key={m.machineNumber} className="border-b border-border last:border-0 hover:bg-background">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <Cpu className={`w-4 h-4 ${m.managerName !== 'Unassigned' ? 'text-blue-500' : 'text-gray-300'}`} />
+                            <span className="font-medium text-foreground">Machine {m.machineNumber}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <UserCircle className={`w-4 h-4 ${m.managerName !== 'Unassigned' ? 'text-primary' : 'text-gray-300'}`} />
+                            <span className={m.managerName !== 'Unassigned' ? 'text-foreground' : 'text-muted italic'}>
+                              {m.managerName}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right font-numbers font-medium">{m.partsProduced}</td>
+                        <td className={`py-3 px-4 text-right font-numbers ${parseFloat(defectPct) > 5 ? 'text-red-600 font-bold' : 'text-muted'}`}>
+                          {m.defects}
+                        </td>
+                        <td className={`py-3 px-4 text-right font-numbers ${parseFloat(defectPct) > 5 ? 'text-red-600 font-bold' : 'text-muted'}`}>
+                          {defectPct}%
+                        </td>
+                        <td className="py-3 px-4 text-right font-numbers font-medium text-green-600">
+                          {(m.partsProduced || 0) - (m.defects || 0)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+
+        {/* ── SECTION 6: Manager Suggestions ── */}
+        <Card className="p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Lightbulb className="w-5 h-5 text-amber-500" />
+            <h2 className="text-base font-bold text-foreground">Suggestions from Managers</h2>
+          </div>
+          {suggestionsLoading ? (
+            <div className="h-24 flex items-center justify-center">
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : suggestions.length === 0 ? (
+            <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-border">
+              <MessageSquare className="w-5 h-5 text-gray-400" />
+              <p className="text-sm text-muted">No suggestions yet. Managers can submit suggestions from their dashboard.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {suggestions.slice(0, 10).map((s: any) => (
+                <div key={s.id} className="flex items-start gap-3 p-3 bg-amber-50/50 rounded-lg border border-amber-200/50">
+                  <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center shrink-0">
+                    <Lightbulb className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold text-foreground">{s.managerName}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">
+                        Machine {s.machineNumber}
+                      </span>
+                      <span className="text-[10px] text-muted ml-auto">
+                        {new Date(s.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted">{s.message}</p>
+                  </div>
+                </div>
+              ))}
+              {suggestions.length > 10 && (
+                <p className="text-xs text-muted text-center">+ {suggestions.length - 10} more suggestions</p>
+              )}
+            </div>
+          )}
+        </Card>
+
+        {/* ── SECTION 7: AI Factory Copilot Quick Ask ── */}
         <Card className="p-5 bg-linear-to-r from-slate-50 to-purple-50/30 border-purple-100/50">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="w-5 h-5 text-purple-600" />

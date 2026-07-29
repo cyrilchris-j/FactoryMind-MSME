@@ -3,44 +3,29 @@
 import { ManagerLayout } from '@/components/layout/manager-layout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
-  FileSpreadsheet, Plus, Clock, CheckCircle2, AlertCircle, TrendingUp, TrendingDown, RefreshCw
+  Cpu, CheckCircle2, AlertCircle, TrendingUp, TrendingDown,
+  RefreshCw, Send, Lightbulb, MessageSquare, Save
 } from 'lucide-react';
-import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/components/auth/auth-provider';
-import { apiGet } from '@/lib/api';
-
-interface SubmissionStats {
-  todayCount: number;
-  lastSubmission: string | null;
-  todayTarget: number;
-  todayActual: number;
-}
-
-interface RecentRecord {
-  id: string;
-  date: string;
-  shift: string;
-  product_name: string;
-  target_quantity: number;
-  actual_quantity: number;
-  downtime_minutes: number;
-  created_at: string;
-}
-
-function formatTime(isoStr: string) {
-  return new Date(isoStr).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-}
-function formatDate(isoStr: string) {
-  return new Date(isoStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-}
+import { apiGet, apiPost } from '@/lib/api';
 
 export default function ManagerDashboardPage() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<SubmissionStats | null>(null);
-  const [recent, setRecent] = useState<RecentRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [suggestionSaving, setSuggestionSaving] = useState(false);
+  const [machineData, setMachineData] = useState<any>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const [partsProduced, setPartsProduced] = useState('');
+  const [defects, setDefects] = useState('');
+  const [suggestion, setSuggestion] = useState('');
+
+  const machineNumber = user?.machineNumber || 0;
 
   const getGreeting = () => {
     const h = new Date().getHours();
@@ -49,126 +34,123 @@ export default function ManagerDashboardPage() {
     return 'Good Evening';
   };
 
-  const department = user?.department || 'Production';
-  const today = new Date().toISOString().split('T')[0];
-
-  const fetchData = useCallback(async () => {
+  const fetchMachineData = useCallback(async () => {
     try {
-      const res: any = await apiGet('/api/production?limit=50');
+      const res: any = await apiGet('/api/machine-production/today');
       const records = res.data ?? [];
-      const todayRecords: RecentRecord[] = records.filter(
-        (r: any) => r.date === today
-      );
-      const todayCount = todayRecords.length;
-      const lastSubmission = todayRecords[0]?.created_at ?? null;
-      const todayTarget = todayRecords.reduce((s: number, r: any) => s + (r.targetQuantity || 0), 0);
-      const todayActual = todayRecords.reduce((s: number, r: any) => s + (r.actualQuantity || 0), 0);
-
-      setStats({ todayCount, lastSubmission, todayTarget, todayActual });
-      setRecent(todayRecords.slice(0, 5).map((r: any) => ({
-        id: r.id,
-        date: r.date,
-        shift: r.shift || '',
-        product_name: r.productName || '',
-        target_quantity: r.targetQuantity || 0,
-        actual_quantity: r.actualQuantity || 0,
-        downtime_minutes: r.downtimeMinutes || 0,
-        created_at: r.createdAt || r.date,
-      })));
+      const myRecord = records.find((r: any) => r.machineNumber === machineNumber);
+      setMachineData(myRecord || null);
+      if (myRecord) {
+        setPartsProduced(String(myRecord.partsProduced || ''));
+        setDefects(String(myRecord.defects || ''));
+      }
     } catch (err) {
-      console.error('Failed to fetch production data', err);
+      console.error('Failed to fetch machine data', err);
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [machineNumber]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchMachineData();
+  }, [fetchMachineData]);
 
-  const achievementPct = stats && stats.todayTarget > 0
-    ? Math.round((stats.todayActual / stats.todayTarget) * 100)
-    : 0;
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [toast]);
+
+  const handleSaveProduction = async () => {
+    setSaving(true);
+    try {
+      await apiPost('/api/machine-production', {
+        machineNumber,
+        partsProduced: parseInt(partsProduced) || 0,
+        defects: parseInt(defects) || 0,
+      });
+      setToast({ type: 'success', message: 'Production data saved!' });
+      await fetchMachineData();
+    } catch (err: any) {
+      setToast({ type: 'error', message: err.message || 'Failed to save' });
+    }
+    setSaving(false);
+  };
+
+  const handleSubmitSuggestion = async () => {
+    if (!suggestion.trim()) return;
+    setSuggestionSaving(true);
+    try {
+      await apiPost('/api/machine-suggestions', {
+        machineNumber,
+        message: suggestion,
+      });
+      setToast({ type: 'success', message: 'Suggestion submitted!' });
+      setSuggestion('');
+    } catch (err: any) {
+      setToast({ type: 'error', message: err.message || 'Failed to submit' });
+    }
+    setSuggestionSaving(false);
+  };
+
+  const defectRate = machineData && machineData.partsProduced > 0
+    ? ((machineData.defects / machineData.partsProduced) * 100).toFixed(1)
+    : '0.0';
+
+  if (!machineNumber) {
+    return (
+      <ManagerLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-64px)]">
+          <div className="text-center">
+            <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
+            <h2 className="text-lg font-bold text-foreground">No Machine Assigned</h2>
+            <p className="text-sm text-muted mt-1">You don't have a machine assigned. Contact the factory owner.</p>
+          </div>
+        </div>
+      </ManagerLayout>
+    );
+  }
 
   return (
     <ManagerLayout>
       <div className="space-y-6">
+        {toast && (
+          <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium transition-all ${
+            toast.type === 'success'
+              ? 'bg-green-50 border border-green-200 text-green-800'
+              : 'bg-red-50 border border-red-200 text-red-800'
+          }`}>
+            {toast.type === 'success'
+              ? <CheckCircle2 className="w-4 h-4 shrink-0" />
+              : <AlertCircle className="w-4 h-4 shrink-0" />
+            }
+            {toast.message}
+          </div>
+        )}
+
         {/* Welcome Banner */}
-        <div className="bg-linear-to-r from-primary to-secondary rounded-xl p-6 text-white">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white">
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-xl font-bold mb-1">
                 {getGreeting()}, {user?.name?.split(' ')[0] || 'Manager'}
               </h1>
-              <p className="text-white/70 text-sm">Department: {department}</p>
-              <p className="text-white/50 text-xs mt-0.5">
+              <div className="flex items-center gap-2 mt-2">
+                <Cpu className="w-5 h-5 text-blue-200" />
+                <span className="text-lg font-bold">Machine {machineNumber}</span>
+              </div>
+              <p className="text-white/50 text-xs mt-1">
                 {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
             </div>
-            <button onClick={fetchData} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+            <button onClick={fetchMachineData} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
               <RefreshCw className="w-4 h-4" />
             </button>
           </div>
-
-          {!loading && stats && stats.todayTarget > 0 && (
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-white/60 mb-1">
-                <span>Today's Production Progress</span>
-                <span>{achievementPct}%</span>
-              </div>
-              <div className="w-full bg-white/20 rounded-full h-2">
-                <div
-                  className={`h-2 rounded-full transition-all ${achievementPct >= 80 ? 'bg-green-400' : 'bg-amber-400'}`}
-                  style={{ width: `${Math.min(achievementPct, 100)}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-xs text-white/60 mt-1">
-                <span>Actual: {stats.todayActual.toLocaleString()} units</span>
-                <span>Target: {stats.todayTarget.toLocaleString()} units</span>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Quick Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="p-6 border border-border hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-base font-semibold text-foreground mb-1">Manual Data Entry</h3>
-                <p className="text-sm text-muted">Add individual brake parts production records for each shift.</p>
-              </div>
-              <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600">
-                <Plus className="w-5 h-5" />
-              </div>
-            </div>
-            <Link href="/manager/data-entry">
-              <Button className="w-full bg-primary hover:bg-primary/90 text-white">
-                Log {department} Data
-              </Button>
-            </Link>
-          </Card>
-
-          <Card className="p-6 border border-border hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-base font-semibold text-foreground mb-1">Bulk Upload (Excel/CSV)</h3>
-                <p className="text-sm text-muted">Upload bulk brake parts data using the provided templates.</p>
-              </div>
-              <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center text-green-600">
-                <FileSpreadsheet className="w-5 h-5" />
-              </div>
-            </div>
-            <Link href="/manager/data-entry?tab=upload">
-              <Button variant="outline" className="w-full border-border">
-                Upload File
-              </Button>
-            </Link>
-          </Card>
-        </div>
-
-        {/* Stats */}
-        <h2 className="text-base font-semibold text-foreground">Today's Status</h2>
+        {/* Today's Status Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="p-5">
             <div className="flex items-center gap-3">
@@ -176,9 +158,9 @@ export default function ManagerDashboardPage() {
                 <CheckCircle2 className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-xs text-muted">Today's Submissions</p>
+                <p className="text-xs text-muted">Today's Production</p>
                 <p className="text-2xl font-bold text-foreground">
-                  {loading ? '—' : stats?.todayCount ?? 0}
+                  {loading ? '—' : machineData?.partsProduced ?? 0}
                 </p>
               </div>
             </div>
@@ -186,17 +168,18 @@ export default function ManagerDashboardPage() {
 
           <Card className="p-5">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${achievementPct >= 80 ? 'bg-green-50' : 'bg-amber-50'}`}>
-                {achievementPct >= 80
-                  ? <TrendingUp className="w-5 h-5 text-green-600" />
-                  : <TrendingDown className="w-5 h-5 text-amber-600" />
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${parseFloat(defectRate) > 5 ? 'bg-red-50' : 'bg-amber-50'}`}>
+                {parseFloat(defectRate) > 5
+                  ? <TrendingDown className="w-5 h-5 text-red-600" />
+                  : <TrendingUp className="w-5 h-5 text-amber-600" />
                 }
               </div>
               <div>
-                <p className="text-xs text-muted">Achievement vs Target</p>
+                <p className="text-xs text-muted">Today's Defects</p>
                 <p className="text-2xl font-bold text-foreground">
-                  {loading ? '—' : `${achievementPct}%`}
+                  {loading ? '—' : machineData?.defects ?? 0}
                 </p>
+                <p className="text-xs text-muted">{defectRate}% defect rate</p>
               </div>
             </div>
           </Card>
@@ -204,71 +187,111 @@ export default function ManagerDashboardPage() {
           <Card className="p-5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center">
-                <Clock className="w-5 h-5 text-purple-600" />
+                <Cpu className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-xs text-muted">Last Submission</p>
-                <p className="text-sm font-bold text-foreground">
-                  {loading ? '—' : stats?.lastSubmission ? formatTime(stats.lastSubmission) : 'None today'}
+                <p className="text-xs text-muted">Good Parts</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {loading ? '—' : (machineData?.partsProduced ?? 0) - (machineData?.defects ?? 0)}
                 </p>
               </div>
             </div>
           </Card>
         </div>
 
-        {/* Recent Submissions */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-foreground">Today's Submissions</h2>
-            <Link href="/manager/history" className="text-sm text-primary hover:underline font-medium">
-              View all history →
-            </Link>
-          </div>
-          <Card className="overflow-hidden">
-            {loading ? (
-              <div className="p-6 space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />
-                ))}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Production Entry */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              <h2 className="text-base font-bold text-foreground">Record Today's Production</h2>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="partsProduced">Parts Produced Today</Label>
+                <Input
+                  id="partsProduced"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 500"
+                  value={partsProduced}
+                  onChange={(e) => setPartsProduced(e.target.value)}
+                />
               </div>
-            ) : recent.length === 0 ? (
-              <div className="p-10 text-center">
-                <AlertCircle className="w-10 h-10 text-border mx-auto mb-2" />
-                <p className="text-sm text-muted font-medium">No submissions yet today</p>
-                <p className="text-xs text-muted mt-1">Use the "Input Brake Parts" button to enter production data.</p>
+              <div className="space-y-1.5">
+                <Label htmlFor="defects">Defects / Rejects</Label>
+                <Input
+                  id="defects"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 5"
+                  value={defects}
+                  onChange={(e) => setDefects(e.target.value)}
+                />
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-background border-b border-border">
-                    <tr>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-muted">Product</th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-muted">Shift</th>
-                      <th className="text-right py-3 px-4 text-xs font-medium text-muted">Target</th>
-                      <th className="text-right py-3 px-4 text-xs font-medium text-muted">Actual</th>
-                      <th className="text-right py-3 px-4 text-xs font-medium text-muted">Downtime</th>
-                      <th className="text-right py-3 px-4 text-xs font-medium text-muted">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recent.map((r) => (
-                      <tr key={r.id} className="border-b border-border last:border-0 hover:bg-background">
-                        <td className="py-3 px-4 font-medium text-foreground">{r.product_name}</td>
-                        <td className="py-3 px-4 text-muted">{r.shift}</td>
-                        <td className="py-3 px-4 text-right text-muted">{r.target_quantity.toLocaleString()}</td>
-                        <td className={`py-3 px-4 text-right font-medium ${r.actual_quantity >= r.target_quantity ? 'text-green-600' : 'text-amber-600'}`}>
-                          {r.actual_quantity.toLocaleString()}
-                        </td>
-                        <td className="py-3 px-4 text-right text-muted">{r.downtime_minutes}m</td>
-                        <td className="py-3 px-4 text-right text-muted text-xs">{formatTime(r.created_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+              <Button
+                onClick={handleSaveProduction}
+                disabled={saving}
+                className="w-full bg-primary hover:bg-primary/90 text-white"
+              >
+                {saving ? (
+                  <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
+                ) : (
+                  <><Save className="w-4 h-4 mr-2" /> Save Production</>
+                )}
+              </Button>
+              {machineData?.updatedAt && (
+                <p className="text-xs text-muted text-center">
+                  Last updated: {new Date(machineData.updatedAt).toLocaleTimeString('en-IN')}
+                </p>
+              )}
+            </div>
+          </Card>
+
+          {/* Suggestions */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Lightbulb className="w-5 h-5 text-amber-500" />
+              <h2 className="text-base font-bold text-foreground">Submit a Suggestion</h2>
+            </div>
+            <p className="text-xs text-muted mb-3">
+              Share ideas or concerns about Machine {machineNumber}. Your suggestions will be visible to the factory owner.
+            </p>
+            <div className="space-y-4">
+              <textarea
+                value={suggestion}
+                onChange={(e) => setSuggestion(e.target.value)}
+                placeholder="e.g. Machine 3 needs calibration, the guide pins are wearing faster than usual..."
+                rows={3}
+                className="flex w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+              />
+              <Button
+                onClick={handleSubmitSuggestion}
+                disabled={suggestionSaving || !suggestion.trim()}
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+              >
+                {suggestionSaving ? (
+                  <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Submitting...</>
+                ) : (
+                  <><Send className="w-4 h-4 mr-2" /> Submit Suggestion</>
+                )}
+              </Button>
+            </div>
           </Card>
         </div>
+
+        {/* Tips */}
+        <Card className="p-5 bg-gradient-to-r from-blue-50/50 to-indigo-50/30 border-blue-100/50">
+          <div className="flex items-center gap-2 mb-2">
+            <MessageSquare className="w-4 h-4 text-blue-600" />
+            <h3 className="text-sm font-bold text-foreground">Machine {machineNumber} - Quick Tips</h3>
+          </div>
+          <ul className="text-xs text-muted space-y-1 list-disc pl-4">
+            <li>Update your production data daily so the owner can track factory output.</li>
+            <li>Report defects accurately to help improve quality control.</li>
+            <li>Use the suggestion box for maintenance requests or process improvements.</li>
+          </ul>
+        </Card>
       </div>
     </ManagerLayout>
   );

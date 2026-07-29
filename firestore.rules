@@ -141,5 +141,21 @@ service cloud.firestore {
       allow update: if factoryDataUpdate();
       allow delete: if factoryDataDelete();
     }
+
+    // === MACHINE DAILY PRODUCTION ===
+    match /machine_daily_production/{doc} {
+      allow read: if factoryDataRead();
+      allow create: if factoryDataCreate();
+      allow update: if factoryDataUpdate();
+      allow delete: if factoryDataDelete();
+    }
+
+    // === MACHINE SUGGESTIONS ===
+    match /machine_suggestions/{doc} {
+      allow read: if factoryDataRead();
+      allow create: if factoryDataCreate();
+      allow update: if factoryDataUpdate();
+      allow delete: if factoryDataDelete();
+    }
   }
 }

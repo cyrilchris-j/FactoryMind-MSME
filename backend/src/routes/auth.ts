@@ -35,6 +35,7 @@ router.get('/me', async (req: Request, res: Response) => {
       factoryId: profile.factoryId,
       departmentId: profile.departmentId,
       department: profile.department,
+      machineNumber: profile.machineNumber,
     })
   } catch (err) {
     console.error('Token verification failed:', err)
