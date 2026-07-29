@@ -4,7 +4,7 @@ import { OwnerLayout } from '@/components/layout/owner-layout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  FileText, Download, Loader2, RefreshCw, Cpu, UserCircle, Filter
+  FileText, Download, Loader2, RefreshCw, Cpu, Filter
 } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
 import { apiGet } from '@/lib/api';
@@ -34,8 +34,8 @@ export default function ReportsPage() {
 
   const downloadCSV = () => {
     if (records.length === 0) { alert('No records to download.'); return; }
-    const headers = ['Date', 'Shift', 'Machine', 'Manager', 'Parts Produced', 'Defects', 'Energy (kWh)', 'Current (Amps)', 'Workers Present', 'Workers Absent'];
-    const rows = records.map((r: any) => [r.date, r.shift || 'General', r.machineNumber, r.managerName, r.partsProduced, r.defects, r.energyKwh || 0, r.currentAmps || 0, r.workersPresent || 0, r.workersAbsent || 0]);
+    const headers = ['Date', 'Shift', 'Machine', 'Parts Produced', 'Defects', 'Energy (kWh)', 'Current (Amps)', 'Workers Present', 'Workers Absent'];
+    const rows = records.map((r: any) => [r.date, r.shift || 'General', `Machine ${r.machineNumber}`, r.partsProduced, r.defects, r.energyKwh || 0, r.currentAmps || 0, r.workersPresent || 0, r.workersAbsent || 0]);
     const csvContent = [headers.join(','), ...rows.map((r: any) => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -120,8 +120,7 @@ export default function ReportsPage() {
                     <th className="text-left py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Date</th>
                     <th className="text-left py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Shift</th>
                     <th className="text-left py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Machine</th>
-                    <th className="text-left py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Manager</th>
-                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Parts</th>
+                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Parts Produced</th>
                     <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Defects</th>
                     <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Energy (kWh)</th>
                     <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Current (Amps)</th>
@@ -141,8 +140,7 @@ export default function ReportsPage() {
                           'bg-gray-100 text-gray-700'
                         }`}>{r.shift || 'General'}</span>
                       </td>
-                      <td className="py-3 px-3"><Cpu className="w-3.5 h-3.5 text-blue-500 inline mr-1" />M{r.machineNumber}</td>
-                      <td className="py-3 px-3"><UserCircle className="w-3.5 h-3.5 text-gray-400 inline mr-1" />{r.managerName}</td>
+                      <td className="py-3 px-3"><Cpu className="w-3.5 h-3.5 text-blue-500 inline mr-1" />Machine {r.machineNumber}</td>
                       <td className="py-3 px-3 text-right">{r.partsProduced}</td>
                       <td className="py-3 px-3 text-right">{r.defects}</td>
                       <td className="py-3 px-3 text-right">{r.energyKwh || 0}</td>
