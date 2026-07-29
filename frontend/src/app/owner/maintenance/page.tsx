@@ -5,214 +5,162 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  Wrench, AlertTriangle, TrendingDown, TrendingUp,
-  Search, Filter, Loader2, RefreshCw, Clock
+  Wrench, AlertTriangle, CheckCircle2, XCircle,
+  Search, Loader2, RefreshCw, Clock, Cpu, Lightbulb, MessageSquare
 } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
-import { apiGet } from '@/lib/api';
-
-interface MaintenanceRecord {
-  id: string;
-  machineCode: string;
-  machineName: string;
-  issueType: string;
-  description: string;
-  priority: string;
-  status: string;
-  reportedDate: string;
-  downtimeMinutes: number;
-  maintenanceCost: number;
-  expectedResolution: string;
-  nextMaintenance: string;
-  notes: string;
-}
+import { apiGet, apiPatch } from '@/lib/api';
+import { Input } from '@/components/ui/input';
 
 export default function MaintenancePage() {
-  const [records, setRecords] = useState<MaintenanceRecord[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [resolving, setResolving] = useState<string | null>(null);
+  const [resolutions, setResolutions] = useState<Record<string, string>>({});
+  const [filter, setFilter] = useState<'open' | 'resolved'>('open');
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const fetchMaintenance = useCallback(async () => {
+  const fetchIssues = useCallback(async () => {
     setLoading(true);
     try {
-      const res: any = await apiGet('/api/maintenance');
-      const data = res.data ?? [];
-      const formatted = data.map((d: any) => ({
-        id: d.id,
-        machineCode: d.machineCode || 'Unknown',
-        machineName: d.machineName || '',
-        issueType: d.issueType || '',
-        description: d.description || '',
-        priority: d.priority || 'MEDIUM',
-        status: d.status || 'PENDING',
-        reportedDate: d.reportedDate || new Date().toISOString(),
-        downtimeMinutes: d.downtimeMinutes || 0,
-        maintenanceCost: d.maintenanceCost || 0,
-        expectedResolution: d.expectedResolution || '',
-        nextMaintenance: d.nextMaintenance || '',
-        notes: d.notes || '',
-      }));
-      const filtered = search
-        ? formatted.filter((r: any) =>
-            r.machineCode.toLowerCase().includes(search.toLowerCase()) ||
-            r.description.toLowerCase().includes(search.toLowerCase())
-          )
-        : formatted;
-      setRecords(filtered);
+      const res: any = await apiGet(filter === 'open' ? '/api/machine-suggestions?status=open' : '/api/machine-suggestions');
+      setSuggestions(res.data ?? []);
     } catch (err) {
-      console.error('Failed to fetch maintenance', err);
+      console.error('Failed to fetch', err);
     }
     setLoading(false);
-  }, [search]);
+  }, [filter]);
 
-  useEffect(() => {
-    fetchMaintenance();
-  }, [fetchMaintenance]);
+  useEffect(() => { fetchIssues(); }, [fetchIssues]);
+  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t); } }, [toast]);
 
-  const activeIssues = records.filter(r => r.status !== 'COMPLETED' && r.status !== 'RESOLVED').length;
-  const criticalIssues = records.filter(r => r.priority === 'HIGH' && r.status !== 'COMPLETED').length;
-  const totalDowntimeMin = records.reduce((s, r) => s + r.downtimeMinutes, 0);
-  const breakdownMachines = records.filter(r => r.status === 'IN_PROGRESS' || r.status === 'PENDING');
+  const handleResolve = async (id: string) => {
+    setResolving(id);
+    try {
+      await apiPatch(`/api/machine-suggestions/${id}/resolve`, { resolution: resolutions[id] || 'Repaired' });
+      setToast({ type: 'success', message: 'Issue marked as resolved!' });
+      fetchIssues();
+    } catch (err: any) {
+      setToast({ type: 'error', message: err.message || 'Failed' });
+    }
+    setResolving(null);
+  };
+
+  const openIssues = suggestions.filter(s => s.status === 'open');
+  const resolvedIssues = suggestions.filter(s => s.status === 'resolved');
+  const displayIssues = filter === 'open' ? openIssues : resolvedIssues;
 
   return (
     <OwnerLayout>
       <div className="space-y-6">
+        {toast && (
+          <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium transition-all ${
+            toast.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'
+          }`}>
+            {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+            {toast.message}
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Maintenance</h1>
-            <p className="text-muted">Machine health and repair tracking</p>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Wrench className="w-6 h-6 text-primary" /> Maintenance
+            </h1>
+            <p className="text-muted text-sm">Manager-reported machine issues & defect tickets</p>
           </div>
-          <Button variant="outline" onClick={fetchMaintenance} disabled={loading} className="border-border">
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+          <Button variant="outline" onClick={fetchIssues} disabled={loading} className="border-border">
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
         </div>
 
-        {/* CNC-04 Breakdown Alert */}
-        {records.filter(r => r.machineCode === 'CNC-04' && r.status === 'IN_PROGRESS').length > 0 && (
-          <Card className="p-5 border-2 border-danger/30 bg-danger/[0.02]">
-            <div className="flex items-start gap-3">
-              <Wrench className="w-6 h-6 text-danger shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground">CNC-04 — Cutting Tool Failure</h3>
-                  <Badge className="bg-danger/10 text-danger animate-pulse">HIGH PRIORITY</Badge>
-                </div>
-                <p className="text-sm text-muted mt-1">
-                  CNC Machining Center #4 experienced a cutting tool failure during the morning shift.
-                  Downtime: 45 minutes. Spindle vibration detected. Requires tool holder replacement and alignment.
-                  Expected resolution: tomorrow.
-                </p>
-                <div className="flex items-center gap-4 mt-2 text-xs text-muted">
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> 45 min downtime</span>
-                  <span className="flex items-center gap-1"><Wrench className="w-3 h-3" /> Est. cost: ₹8,500</span>
-                </div>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="p-5">
             <div className="flex items-center gap-3 mb-2">
-              <Wrench className="w-5 h-5 text-primary" />
+              <AlertTriangle className="w-5 h-5 text-red-500" />
             </div>
-            <p className="text-2xl font-bold text-foreground">{loading ? '—' : activeIssues}</p>
-            <p className="text-sm text-muted">Active Issues</p>
+            <p className="text-2xl font-bold text-red-600">{loading ? '—' : openIssues.length}</p>
+            <p className="text-sm text-muted">Open Issues</p>
           </Card>
           <Card className="p-5">
             <div className="flex items-center gap-3 mb-2">
-              <AlertTriangle className="w-5 h-5 text-danger" />
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
             </div>
-            <p className="text-2xl font-bold text-danger">{loading ? '—' : criticalIssues}</p>
-            <p className="text-sm text-muted">High Priority</p>
+            <p className="text-2xl font-bold text-green-600">{loading ? '—' : resolvedIssues.length}</p>
+            <p className="text-sm text-muted">Resolved Today</p>
           </Card>
           <Card className="p-5">
             <div className="flex items-center gap-3 mb-2">
-              <Clock className="w-5 h-5 text-warning" />
+              <MessageSquare className="w-5 h-5 text-blue-500" />
             </div>
-            <p className="text-2xl font-bold text-warning">{loading ? '—' : `${Math.round(totalDowntimeMin / 60)} hrs`}</p>
-            <p className="text-sm text-muted">Total Downtime</p>
-          </Card>
-          <Card className="p-5">
-            <div className="flex items-center gap-3 mb-2">
-              <TrendingDown className="w-5 h-5 text-secondary" />
-            </div>
-            <p className="text-2xl font-bold text-foreground">{loading ? '—' : breakdownMachines.length}</p>
-            <p className="text-sm text-muted">Machines in Breakdown</p>
+            <p className="text-2xl font-bold text-foreground">{loading ? '—' : suggestions.length}</p>
+            <p className="text-sm text-muted">Total Reports</p>
           </Card>
         </div>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-foreground">Maintenance Tickets</h2>
-            <div className="flex space-x-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted w-4 h-4" />
-                <input
-                  type="search"
-                  placeholder="Search tickets..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-            </div>
-          </div>
+        <div className="flex gap-2 mb-2">
+          <button onClick={() => setFilter('open')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'open' ? 'bg-primary text-white' : 'bg-background text-muted border border-border'}`}>
+            Open Issues ({openIssues.length})
+          </button>
+          <button onClick={() => setFilter('resolved')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'resolved' ? 'bg-primary text-white' : 'bg-background text-muted border border-border'}`}>
+            Resolved ({resolvedIssues.length})
+          </button>
+        </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-background">
-                  <th className="text-left py-3 px-4 font-medium text-muted">Machine</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted">Issue Type</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted">Description</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted">Priority</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted">Status</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted">Downtime</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted">Expected Resolution</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} className="py-10 text-center text-muted">
-                      <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                      Loading tickets...
-                    </td>
-                  </tr>
-                ) : records.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-10 text-center text-muted">No maintenance tickets found.</td>
-                  </tr>
-                ) : records.map((record) => (
-                  <tr key={record.id} className={`border-b border-border hover:bg-background ${record.priority === 'HIGH' && record.status !== 'COMPLETED' ? 'bg-red-50/30' : ''}`}>
-                    <td className="py-3 px-4">
-                      <span className="font-medium text-foreground">{record.machineCode}</span>
-                      {record.machineName && <span className="text-xs text-muted ml-1">({record.machineName})</span>}
-                    </td>
-                    <td className="py-3 px-4 text-foreground">{record.issueType}</td>
-                    <td className="py-3 px-4 text-muted max-w-xs truncate text-xs">{record.description}</td>
-                    <td className="py-3 px-4">
-                      <Badge className={record.priority === 'HIGH' ? 'bg-danger/10 text-danger' : record.priority === 'MEDIUM' ? 'bg-warning/10 text-warning' : 'bg-accent/10 text-accent'}>
-                        {record.priority}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge className={record.status === 'COMPLETED' || record.status === 'RESOLVED' ? 'bg-accent/10 text-accent' : record.status === 'IN_PROGRESS' ? 'bg-warning/10 text-warning' : 'bg-primary/10 text-primary'}>
-                        {record.status?.replace('_', ' ')}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4 text-right font-numbers">{record.downtimeMinutes}m</td>
-                    <td className="py-3 px-4 text-xs text-muted">
-                      {record.expectedResolution ? new Date(record.expectedResolution).toLocaleDateString() : '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        <div className="space-y-3">
+          {loading ? (
+            <div className="py-10 text-center text-muted"><Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />Loading...</div>
+          ) : displayIssues.length === 0 ? (
+            <Card className="p-8 text-center">
+              <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-3" />
+              <p className="text-lg font-semibold text-foreground">All Clear</p>
+              <p className="text-sm text-muted">No {filter} issues from managers.</p>
+            </Card>
+          ) : displayIssues.map((s: any) => (
+            <Card key={s.id} className={`p-5 ${s.status === 'open' ? 'border-l-4 border-l-red-400' : 'border-l-4 border-l-green-400 bg-green-50/30'}`}>
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    {s.status === 'open' ? <AlertTriangle className="w-4 h-4 text-red-500" /> : <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                    <span className="font-semibold text-foreground">{s.managerName}</span>
+                    <Badge className={s.status === 'open' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}>{s.status}</Badge>
+                    <span className="text-xs text-muted">
+                      <Cpu className="w-3 h-3 inline mr-0.5" />Machine {s.machineNumber}
+                    </span>
+                    <span className="text-[10px] text-muted ml-auto">
+                      {new Date(s.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <p className="text-sm text-foreground mt-2">{s.message}</p>
+                  {s.status === 'resolved' && (
+                    <div className="mt-2 p-2 bg-green-100/50 rounded-lg text-xs text-green-800">
+                      <span className="font-semibold">Resolution: </span>{s.resolution || 'Repaired'} &mdash; by {s.resolvedBy || 'Owner'}
+                      {s.resolvedAt && <> on {new Date(s.resolvedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit' })}</>}
+                    </div>
+                  )}
+                </div>
+                {s.status === 'open' && (
+                  <div className="ml-4 space-y-2 w-64 shrink-0">
+                    <Input
+                      placeholder="Repair notes..."
+                      value={resolutions[s.id] || ''}
+                      onChange={(e) => setResolutions({ ...resolutions, [s.id]: e.target.value })}
+                      className="text-xs"
+                    />
+                    <Button
+                      onClick={() => handleResolve(s.id)}
+                      disabled={resolving === s.id}
+                      size="sm"
+                      className="w-full bg-green-600 hover:bg-green-700 text-white text-xs"
+                    >
+                      {resolving === s.id ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Resolving...</> : <><CheckCircle2 className="w-3 h-3 mr-1" /> Mark Repaired</>}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>
     </OwnerLayout>
   );

@@ -42,6 +42,8 @@ export default function ManagerDashboardPage() {
   const [defects, setDefects] = useState('');
   const [energyKwh, setEnergyKwh] = useState('');
   const [currentAmps, setCurrentAmps] = useState('');
+  const [workersPresent, setWorkersPresent] = useState('');
+  const [workersAbsent, setWorkersAbsent] = useState('');
   const [suggestion, setSuggestion] = useState('');
 
   // Excel upload state
@@ -72,6 +74,8 @@ export default function ManagerDashboardPage() {
         setDefects(String(myRecord.defects || ''));
         setEnergyKwh(String(myRecord.energyKwh || ''));
         setCurrentAmps(String(myRecord.currentAmps || ''));
+        setWorkersPresent(String(myRecord.workersPresent || ''));
+        setWorkersAbsent(String(myRecord.workersAbsent || ''));
       }
     } catch (err) {
       console.error('Failed to fetch machine data', err);
@@ -100,6 +104,8 @@ export default function ManagerDashboardPage() {
         defects: parseInt(defects) || 0,
         energyKwh: parseFloat(energyKwh) || 0,
         currentAmps: parseFloat(currentAmps) || 0,
+        workersPresent: parseInt(workersPresent) || 0,
+        workersAbsent: parseInt(workersAbsent) || 0,
       });
       setToast({ type: 'success', message: 'Production & energy data saved!' });
       await fetchMachineData();
@@ -248,8 +254,8 @@ export default function ManagerDashboardPage() {
             <p className="text-[10px] text-muted">{defectRate}%</p>
           </Card>
           <Card className="p-4">
-            <p className="text-[10px] text-muted uppercase tracking-wide mb-1">Good Parts</p>
-            <p className="text-xl font-bold text-green-600">{loading ? '—' : (machineData?.partsProduced ?? 0) - (machineData?.defects ?? 0)}</p>
+            <p className="text-[10px] text-muted uppercase tracking-wide mb-1">Workers Present</p>
+            <p className="text-xl font-bold text-green-600">{loading ? '—' : machineData?.workersPresent ?? 0}</p>
           </Card>
           <Card className="p-4">
             <p className="text-[10px] text-muted uppercase tracking-wide mb-1">Energy (kWh)</p>
@@ -282,6 +288,14 @@ export default function ManagerDashboardPage() {
                 <div className="space-y-1.5">
                   <Label>Current (Amps)</Label>
                   <Input type="number" min="0" step="0.1" placeholder="e.g. 15.2" value={currentAmps} onChange={(e) => setCurrentAmps(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Workers Present</Label>
+                  <Input type="number" min="0" placeholder="e.g. 5" value={workersPresent} onChange={(e) => setWorkersPresent(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Workers Absent</Label>
+                  <Input type="number" min="0" placeholder="e.g. 1" value={workersAbsent} onChange={(e) => setWorkersAbsent(e.target.value)} />
                 </div>
               </div>
               <Button onClick={handleSaveProduction} disabled={saving} className="w-full mt-4 bg-primary hover:bg-primary/90 text-white">

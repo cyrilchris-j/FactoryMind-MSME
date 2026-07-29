@@ -6,14 +6,10 @@ import {
   LayoutDashboard,
   Factory as FactoryIcon,
   Package,
-  Boxes,
-  ShoppingCart,
   Wrench,
-  ShieldCheck,
   Users,
   Zap,
   Sparkles,
-  Bell,
   FileBarChart,
   Settings,
   ChevronLeft,
@@ -26,16 +22,10 @@ import { useAuth } from '@/components/auth/auth-provider';
 
 const navigation = [
   { name: 'Dashboard', href: '/owner/dashboard', icon: LayoutDashboard },
-  { name: 'Products & BOM', href: '/owner/products', icon: Package },
-  { name: 'Production', href: '/owner/production', icon: FactoryIcon },
-  { name: 'Inventory', href: '/owner/inventory', icon: Boxes },
-  { name: 'Orders', href: '/owner/orders', icon: ShoppingCart },
-  { name: 'Machines & Maintenance', href: '/owner/maintenance', icon: Wrench },
-  { name: 'Quality', href: '/owner/quality', icon: ShieldCheck },
+  { name: 'Maintenance', href: '/owner/maintenance', icon: Wrench },
   { name: 'Workforce', href: '/owner/workers', icon: Users },
   { name: 'Energy', href: '/owner/energy', icon: Zap },
   { name: 'AI Factory Copilot', href: '/owner/ai-copilot', icon: Sparkles },
-  { name: 'Alerts', href: '/owner/alerts', icon: Bell },
   { name: 'Reports', href: '/owner/reports', icon: FileBarChart },
 ];
 

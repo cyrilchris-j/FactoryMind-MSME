@@ -1245,7 +1245,7 @@ router.get('/machine-production/today', async (req: AuthRequest, res: Response) 
 })
 
 router.post('/machine-production', async (req: AuthRequest, res: Response) => {
-  const { machineNumber, partsProduced, defects, energyKwh, currentAmps } = req.body
+  const { machineNumber, partsProduced, defects, energyKwh, currentAmps, workersPresent, workersAbsent } = req.body
   if (!machineNumber || machineNumber < 1 || machineNumber > 10) {
     res.status(400).json({ error: 'machineNumber must be 1-10' })
     return
@@ -1271,6 +1271,8 @@ router.post('/machine-production', async (req: AuthRequest, res: Response) => {
         defects: Number(defects || 0),
         energyKwh: Number(energyKwh || 0),
         currentAmps: Number(currentAmps || 0),
+        workersPresent: Number(workersPresent || 0),
+        workersAbsent: Number(workersAbsent || 0),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
@@ -1281,6 +1283,8 @@ router.post('/machine-production', async (req: AuthRequest, res: Response) => {
         defects: Number(defects || 0),
         energyKwh: Number(energyKwh || 0),
         currentAmps: Number(currentAmps || 0),
+        workersPresent: Number(workersPresent || 0),
+        workersAbsent: Number(workersAbsent || 0),
         managerName,
         updatedAt: new Date().toISOString(),
       })
@@ -1294,7 +1298,7 @@ router.post('/machine-production', async (req: AuthRequest, res: Response) => {
 
 // ── MACHINE SUGGESTIONS ──────────────────────────────────────────────────────
 router.post('/machine-suggestions', async (req: AuthRequest, res: Response) => {
-  const { machineNumber, message } = req.body
+  const { machineNumber, message, type } = req.body
   if (!machineNumber || !message) {
     res.status(400).json({ error: 'machineNumber and message are required' })
     return
@@ -1307,6 +1311,8 @@ router.post('/machine-suggestions', async (req: AuthRequest, res: Response) => {
       managerId: req.uid,
       managerName,
       message,
+      type: type || 'suggestion',
+      status: 'open',
       createdAt: new Date().toISOString(),
       isRead: false,
     })
@@ -1318,12 +1324,30 @@ router.post('/machine-suggestions', async (req: AuthRequest, res: Response) => {
 })
 
 router.get('/machine-suggestions', async (req: AuthRequest, res: Response) => {
-  const snap = await adminDb.collection('machine_suggestions')
+  const { status } = req.query
+  let query: any = adminDb.collection('machine_suggestions')
     .where('factoryId', '==', req.factoryId!)
-    .get()
+  if (status) query = query.where('status', '==', status)
+  const snap = await query.get()
   let list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
   list.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   res.json({ data: list })
+})
+
+router.patch('/machine-suggestions/:id/resolve', async (req: AuthRequest, res: Response) => {
+  const { resolution } = req.body
+  try {
+    await adminDb.collection('machine_suggestions').doc(req.params.id as string).update({
+      status: 'resolved',
+      resolution: resolution || 'Repaired',
+      resolvedAt: new Date().toISOString(),
+      resolvedBy: req.name || 'Owner',
+    })
+    res.json({ success: true, message: 'Issue marked as resolved' })
+  } catch (err) {
+    console.error('Failed to resolve suggestion:', err)
+    res.status(500).json({ error: 'Failed to resolve' })
+  }
 })
 
 // ── MANAGERS WITH MACHINE INFO ──────────────────────────────────────────────
@@ -1357,10 +1381,25 @@ router.get('/managers-with-machines', async (req: AuthRequest, res: Response) =>
       defects: prod?.defects || 0,
       energyKwh: prod?.energyKwh || 0,
       currentAmps: prod?.currentAmps || 0,
+      workersPresent: prod?.workersPresent || 0,
+      workersAbsent: prod?.workersAbsent || 0,
       lastUpdated: prod?.updatedAt || null,
     })
   }
   res.json({ data: result, today })
+})
+
+// ── MACHINE ENERGY OVERVIEW ────────────────────────────────────────────────
+router.get('/machine-energy/overview', async (req: AuthRequest, res: Response) => {
+  const today = new Date().toISOString().split('T')[0]
+  const snap = await adminDb.collection('machine_daily_production')
+    .where('factoryId', '==', req.factoryId!)
+    .where('date', '==', today)
+    .get()
+  const records = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  const totalKwh = records.reduce((s: number, r: any) => s + (r.energyKwh || 0), 0)
+  const totalAmps = records.reduce((s: number, r: any) => s + (r.currentAmps || 0), 0)
+  res.json({ data: records, totalKwh, totalAmps, today })
 })
 
 // ── MACHINE ENERGY / CURRENT ─────────────────────────────────────────────────
