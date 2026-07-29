@@ -38,6 +38,7 @@ export default function ManagerDashboardPage() {
   const [machineData, setMachineData] = useState<any>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  const [shift, setShift] = useState('General');
   const [partsProduced, setPartsProduced] = useState('');
   const [defects, setDefects] = useState('');
   const [energyKwh, setEnergyKwh] = useState('');
@@ -100,6 +101,7 @@ export default function ManagerDashboardPage() {
     try {
       await apiPost('/api/machine-production', {
         machineNumber,
+        shift,
         partsProduced: parseInt(partsProduced) || 0,
         defects: parseInt(defects) || 0,
         energyKwh: parseFloat(energyKwh) || 0,
@@ -271,6 +273,16 @@ export default function ManagerDashboardPage() {
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp className="w-5 h-5 text-primary" />
                 <h2 className="text-base font-bold text-foreground">Record Today's Data</h2>
+              </div>
+              <div className="mb-4">
+                <Label>Shift</Label>
+                <select value={shift} onChange={(e) => setShift(e.target.value)}
+                  className="w-full mt-1 rounded-md border border-border bg-transparent px-3 py-2 text-sm">
+                  <option value="General">General</option>
+                  <option value="Morning">Morning</option>
+                  <option value="Afternoon">Afternoon</option>
+                  <option value="Night">Night</option>
+                </select>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">

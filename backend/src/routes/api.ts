@@ -1234,6 +1234,28 @@ router.put('/customer-orders/:id', async (req: AuthRequest, res: Response) => {
 })
 
 // ── MACHINE-WISE DAILY PRODUCTION ────────────────────────────────────────────
+router.get('/machine-production/range', async (req: AuthRequest, res: Response) => {
+  const { startDate, endDate, shift } = req.query
+  if (!startDate || !endDate) {
+    res.status(400).json({ error: 'startDate and endDate query params required (YYYY-MM-DD)' })
+    return
+  }
+  try {
+    const snap = await adminDb.collection('machine_daily_production')
+      .where('factoryId', '==', req.factoryId!)
+      .where('date', '>=', startDate as string)
+      .where('date', '<=', endDate as string)
+      .get()
+    let records = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+    if (shift) records = records.filter((r: any) => r.shift === shift)
+    records.sort((a: any, b: any) => a.date.localeCompare(b.date) || a.machineNumber - b.machineNumber)
+    res.json({ data: records, startDate, endDate, shift: shift || 'all' })
+  } catch (err) {
+    console.error('Failed to fetch production range:', err)
+    res.status(500).json({ error: 'Failed to fetch production data' })
+  }
+})
+
 router.get('/machine-production/today', async (req: AuthRequest, res: Response) => {
   const today = new Date().toISOString().split('T')[0]
   const snap = await adminDb.collection('machine_daily_production')
@@ -1245,7 +1267,7 @@ router.get('/machine-production/today', async (req: AuthRequest, res: Response) 
 })
 
 router.post('/machine-production', async (req: AuthRequest, res: Response) => {
-  const { machineNumber, partsProduced, defects, energyKwh, currentAmps, workersPresent, workersAbsent } = req.body
+  const { machineNumber, partsProduced, defects, energyKwh, currentAmps, workersPresent, workersAbsent, shift } = req.body
   if (!machineNumber || machineNumber < 1 || machineNumber > 10) {
     res.status(400).json({ error: 'machineNumber must be 1-10' })
     return
@@ -1267,6 +1289,7 @@ router.post('/machine-production', async (req: AuthRequest, res: Response) => {
         managerId: req.uid,
         managerName,
         date: today,
+        shift: shift || 'General',
         partsProduced: Number(partsProduced || 0),
         defects: Number(defects || 0),
         energyKwh: Number(energyKwh || 0),
@@ -1279,6 +1302,7 @@ router.post('/machine-production', async (req: AuthRequest, res: Response) => {
     } else {
       const docId = existingSnap.docs[0].id
       await adminDb.collection('machine_daily_production').doc(docId).update({
+        shift: shift || 'General',
         partsProduced: Number(partsProduced || 0),
         defects: Number(defects || 0),
         energyKwh: Number(energyKwh || 0),
@@ -1383,6 +1407,7 @@ router.get('/managers-with-machines', async (req: AuthRequest, res: Response) =>
       currentAmps: prod?.currentAmps || 0,
       workersPresent: prod?.workersPresent || 0,
       workersAbsent: prod?.workersAbsent || 0,
+      shift: prod?.shift || 'General',
       lastUpdated: prod?.updatedAt || null,
     })
   }
