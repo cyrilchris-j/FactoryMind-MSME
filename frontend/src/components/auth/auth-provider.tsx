@@ -21,6 +21,7 @@ export interface AppUser {
   department?: string
   departmentId?: string
   factoryId?: string
+  componentCode?: string
 }
 
 interface AuthState {
@@ -32,7 +33,7 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<{ error?: string }>
-  register: (email: string, password: string, name: string, role: 'OWNER' | 'MANAGER', factoryId?: string) => Promise<{ error?: string }>
+  register: (email: string, password: string, name: string, role: 'OWNER' | 'MANAGER', factoryId?: string, componentCode?: string) => Promise<{ error?: string }>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
 }
@@ -53,6 +54,7 @@ async function fetchProfile(uid: string): Promise<AppUser | null> {
         department: res.department ?? undefined,
         departmentId: res.departmentId ?? undefined,
         factoryId: res.factoryId ?? undefined,
+        componentCode: res.componentCode ?? undefined,
       }
     }
   } catch (err: any) {
@@ -71,6 +73,7 @@ async function fetchProfile(uid: string): Promise<AppUser | null> {
       department: data.department ?? undefined,
       departmentId: data.departmentId ?? undefined,
       factoryId: data.factoryId ?? undefined,
+      componentCode: data.componentCode ?? undefined,
     }
   } catch (err: any) {
     console.error("Error fetching profile:", err);
@@ -164,7 +167,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     name: string,
     role: 'OWNER' | 'MANAGER',
-    factoryId?: string
+    factoryId?: string,
+    componentCode?: string
   ): Promise<{ error?: string }> => {
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password)
@@ -174,6 +178,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         name,
         role,
+        department: componentCode ? 'Inventory' : (role === 'MANAGER' ? 'Production' : null),
+        componentCode: componentCode || null,
         factoryId: factoryId || null,
         createdAt: new Date().toISOString()
       })

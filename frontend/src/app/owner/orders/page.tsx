@@ -72,7 +72,7 @@ export default function OrdersPage() {
 
   return (
     <OwnerLayout>
-      <div className="p-6 lg:p-8 max-w-[1400px] mx-auto">
+      <div className="p-6 lg:p-8 max-w-350 mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-bold text-foreground flex items-center gap-2">

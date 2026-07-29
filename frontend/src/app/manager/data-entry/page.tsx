@@ -648,7 +648,7 @@ export default function ManualDataEntryPage() {
                                   <td className="py-2 px-3 font-medium">{r.date}</td>
                                   <td className="py-2 px-3 text-muted">{r.shift}</td>
                                   <td className="py-2 px-3 font-mono">{r.machine}</td>
-                                  <td className="py-2 px-3 font-medium truncate max-w-[150px]">{r.product_name}</td>
+                                  <td className="py-2 px-3 font-medium truncate max-w-37.5">{r.product_name}</td>
                                   <td className="py-2 px-3 text-right text-muted">{r.target_quantity}</td>
                                   <td className="py-2 px-3 text-right font-semibold">{r.actual_quantity}</td>
                                   <td className="py-2 px-3">

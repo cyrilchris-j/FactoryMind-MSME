@@ -5,9 +5,22 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Factory, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Factory, Mail, Lock, Eye, EyeOff, AlertCircle, Package, Eye as EyeIcon } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
 import Link from 'next/link';
+
+const COMPONENT_DEMOS = [
+  { code: 'BRAKE_DISC', name: 'Brake Disc', email: 'brakedisc@factorymind.ai' },
+  { code: 'BRAKE_CALIPER', name: 'Brake Caliper', email: 'caliper@factorymind.ai' },
+  { code: 'BRAKE_PAD', name: 'Brake Pad', email: 'brakepad@factorymind.ai' },
+  { code: 'PISTON', name: 'Piston', email: 'piston@factorymind.ai' },
+  { code: 'CALIPER_BRACKET', name: 'Caliper Bracket', email: 'bracket@factorymind.ai' },
+  { code: 'GUIDE_PIN', name: 'Guide Pin', email: 'guidepin@factorymind.ai' },
+  { code: 'SEAL_RING', name: 'Seal Ring', email: 'sealring@factorymind.ai' },
+  { code: 'DUST_BOOT', name: 'Dust Boot', email: 'dustboot@factorymind.ai' },
+  { code: 'BOLT_KIT', name: 'Bolt Kit', email: 'boltkid@factorymind.ai' },
+  { code: 'WEAR_SENSOR', name: 'Wear Sensor', email: 'wearsensor@factorymind.ai' },
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,8 +42,6 @@ export default function LoginPage() {
         setError(result.error);
         return;
       }
-      // Middleware will handle the redirect based on role.
-      // We push to /dashboard which middleware redirects to the right portal.
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
@@ -39,14 +50,9 @@ export default function LoginPage() {
     }
   };
 
-  const fillDemo = (role: 'owner' | 'manager') => {
-    if (role === 'owner') {
-      setEmail('cyrilchrisj@gmail.com');
-      setPassword('MaxVerstappen33');
-    } else {
-      setEmail('production@precisionforgings.com');
-      setPassword('demo1234');
-    }
+  const fillDemo = (email: string, pw: string = 'demo1234') => {
+    setEmail(email);
+    setPassword(pw);
   };
 
   return (
@@ -87,22 +93,37 @@ export default function LoginPage() {
           {/* Demo Credentials */}
           <div className="mt-10 w-full max-w-sm">
             <p className="text-white/50 text-xs text-center mb-3 uppercase tracking-wider">Demo Accounts</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => fillDemo('owner')}
-                className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg p-3 text-left transition-colors"
+                onClick={() => fillDemo('cyrilchrisj@gmail.com', 'MaxVerstappen33')}
+                className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg p-2.5 text-left transition-colors"
               >
-                <p className="text-xs text-white/60 mb-0.5">Factory Owner</p>
-                <p className="text-sm font-semibold text-white">Prime Auto Components</p>
+                <p className="text-[10px] text-white/60 mb-0.5">Factory Owner</p>
+                <p className="text-xs font-semibold text-white">Prime Auto Components</p>
               </button>
               <button
-                onClick={() => fillDemo('manager')}
-                className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg p-3 text-left transition-colors"
+                onClick={() => fillDemo('production@factorymind.ai')}
+                className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg p-2.5 text-left transition-colors"
               >
-                <p className="text-xs text-white/60 mb-0.5">Manager</p>
-                <p className="text-sm font-semibold text-white">Production Manager</p>
+                <p className="text-[10px] text-white/60 mb-0.5">11th Manager</p>
+                <p className="text-xs font-semibold text-white">Overall Production</p>
               </button>
             </div>
+            <details className="mt-2">
+              <summary className="text-[10px] text-white/40 cursor-pointer hover:text-white/60 text-center">10 Component Managers</summary>
+              <div className="grid grid-cols-2 gap-1.5 mt-2">
+                {COMPONENT_DEMOS.map(c => (
+                  <button
+                    key={c.code}
+                    onClick={() => fillDemo(c.email)}
+                    className="bg-white/5 hover:bg-white/15 border border-white/10 rounded p-1.5 text-left transition-colors"
+                  >
+                    <p className="text-[9px] text-white/40 font-mono">{c.code}</p>
+                    <p className="text-[10px] font-medium text-white">{c.name}</p>
+                  </button>
+                ))}
+              </div>
+            </details>
           </div>
         </div>
       </div>

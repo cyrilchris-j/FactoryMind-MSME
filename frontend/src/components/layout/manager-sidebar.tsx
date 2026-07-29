@@ -20,9 +20,24 @@ import {
   Zap,
   ShoppingCart,
   UploadCloud,
+  BarChart3,
+  Target,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/auth-provider';
+
+const COMPONENT_NAMES: Record<string, string> = {
+  BRAKE_DISC: 'Brake Disc',
+  BRAKE_CALIPER: 'Brake Caliper',
+  BRAKE_PAD: 'Brake Pad',
+  PISTON: 'Piston',
+  CALIPER_BRACKET: 'Caliper Bracket',
+  GUIDE_PIN: 'Guide Pin',
+  SEAL_RING: 'Seal Ring',
+  DUST_BOOT: 'Dust Boot',
+  BOLT_KIT: 'Bolt Kit',
+  WEAR_SENSOR: 'Wear Sensor',
+};
 
 const allNavigation = {
   Inventory: [
@@ -36,6 +51,14 @@ const allNavigation = {
   Production: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Production Entry', href: '/manager/production', icon: Plus },
+    { name: 'Overall Production View', href: '/manager/production-overview', icon: BarChart3 },
+    { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
+  ],
+  Component: [
+    { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
+    { name: 'My Component', href: '/manager/my-component', icon: Target },
+    { name: 'Production Status', href: '/manager/production-overview', icon: BarChart3 },
     { name: 'Submission History', href: '/manager/history', icon: History },
     { name: 'Notifications', href: '/manager/notifications', icon: Bell },
   ],
@@ -105,6 +128,10 @@ export function ManagerSidebar({ collapsed = false, onToggle, isMobile = false, 
     ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'MG';
 
+  const componentCode = user?.componentCode;
+  const isComponentManager = !!componentCode;
+  const componentName = componentCode ? (COMPONENT_NAMES[componentCode] || componentCode) : '';
+
   const deptColor: Record<string, string> = {
     Production: 'bg-blue-600',
     Inventory: 'bg-amber-600',
@@ -113,10 +140,15 @@ export function ManagerSidebar({ collapsed = false, onToggle, isMobile = false, 
     Sales: 'bg-green-600',
     Workforce: 'bg-purple-600',
   };
+
   const rawDept = user?.department || 'Production';
   const dept = rawDept === 'Sales' ? 'Orders' : rawDept;
   const accentColor = deptColor[rawDept] || 'bg-primary';
-  const navigation = allNavigation[dept as keyof typeof allNavigation] || defaultNavigation;
+  const navigation = isComponentManager
+    ? allNavigation['Component']
+    : (allNavigation[dept as keyof typeof allNavigation] || defaultNavigation);
+
+  const roleLabel = isComponentManager ? `${componentName} Manager` : `${dept} Manager`;
 
   return (
     <div
@@ -149,8 +181,12 @@ export function ManagerSidebar({ collapsed = false, onToggle, isMobile = false, 
       {/* Department Badge */}
       {!collapsed && (
         <div className="mx-3 mt-3 px-3 py-2 bg-background rounded-lg border border-border">
-          <p className="text-[10px] text-muted uppercase tracking-wider mb-0.5">Department</p>
-          <p className="text-sm font-semibold text-foreground">{dept}</p>
+          <p className="text-[10px] text-muted uppercase tracking-wider mb-0.5">
+            {isComponentManager ? 'Component' : 'Department'}
+          </p>
+          <p className="text-sm font-semibold text-foreground">
+            {isComponentManager ? componentName : dept}
+          </p>
         </div>
       )}
 
@@ -216,7 +252,7 @@ export function ManagerSidebar({ collapsed = false, onToggle, isMobile = false, 
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{user?.name || 'Manager'}</p>
-              <p className="text-xs text-muted truncate">{dept} Manager</p>
+              <p className="text-xs text-muted truncate">{roleLabel}</p>
             </div>
             <button
               onClick={handleLogout}

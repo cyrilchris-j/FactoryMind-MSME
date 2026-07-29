@@ -181,7 +181,7 @@ export default function OwnerDashboard() {
 
   return (
     <OwnerLayout>
-      <div className="p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto">
+      <div className="p-6 lg:p-8 space-y-6 max-w-350 mx-auto">
         {/* ── SECTION 1: Factory Status Header ── */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -391,7 +391,7 @@ export default function OwnerDashboard() {
         </div>
 
         {/* ── SECTION 5: AI Factory Copilot Quick Ask ── */}
-        <Card className="p-5 bg-gradient-to-r from-slate-50 to-purple-50/30 border-purple-100/50">
+        <Card className="p-5 bg-linear-to-r from-slate-50 to-purple-50/30 border-purple-100/50">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="w-5 h-5 text-purple-600" />
             <h2 className="text-base font-bold text-foreground">AI Factory Copilot</h2>
