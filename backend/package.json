@@ -10,8 +10,10 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "seed": "tsx src/scripts/seed.ts",
-"seed:demo": "tsx src/scripts/seed-demo.ts",
-"seed:machines": "tsx src/scripts/seed-machines.ts"
+    "seed:demo": "tsx src/scripts/seed-demo.ts",
+    "seed:machines": "tsx src/scripts/seed-machines.ts",
+    "seed:complete": "tsx src/scripts/seed-complete.ts",
+    "seed:owner": "tsx src/scripts/seedOwner.ts"
   },
   "keywords": [],
   "author": "",
