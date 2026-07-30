@@ -72,16 +72,6 @@ export default function ReportsPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div>
-              <label className="text-xs text-muted block mb-1">From Date</label>
-              <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background" />
-            </div>
-            <div>
-              <label className="text-xs text-muted block mb-1">To Date</label>
-              <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background" />
-            </div>
-            <div>
               <label className="text-xs text-muted block mb-1">Quick Month</label>
               <input type="month" value={monthYear} onChange={e => {
                 setMonthYear(e.target.value);
