@@ -14,8 +14,10 @@ import {
 import { useEffect, useState, useCallback } from 'react';
 import { apiGet, apiPost } from '@/lib/api';
 import Link from 'next/link';
+import { useAuth } from '@/components/auth/auth-provider';
 
 export default function OwnerDashboard() {
+  const { user } = useAuth();
   const [kpi, setKpi] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -66,6 +68,8 @@ export default function OwnerDashboard() {
   }, []);
 
   useEffect(() => {
+    if (!user) return;
+    
     fetchKpis();
     fetchMachinesData();
     fetchSuggestions();
@@ -74,7 +78,7 @@ export default function OwnerDashboard() {
       fetchMachinesData();
     }, 30000);
     return () => clearInterval(interval);
-  }, [fetchKpis, fetchMachinesData, fetchSuggestions]);
+  }, [fetchKpis, fetchMachinesData, fetchSuggestions, user]);
 
   useEffect(() => {
     if (toast) {
