@@ -90,10 +90,6 @@ const defaultNavigation = [
   { name: 'Submission History', href: '/manager/history', icon: History },
 ]
 
-const bottomNav = [
-  { name: 'Profile', href: '/profile', icon: UserCircle },
-  { name: 'Settings', href: '/manager/settings', icon: Settings },
-];
 
 interface ManagerSidebarProps {
   collapsed?: boolean;
@@ -204,31 +200,7 @@ export function ManagerSidebar({ collapsed = false, onToggle, isMobile = false, 
           })}
         </ul>
 
-        <div className="mt-3 pt-3 border-t border-border mx-2">
-          <ul className="space-y-0.5">
-            {bottomNav.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <li key={item.name}>
-                  <Link
-                    href={item.href}
-                    onClick={() => isMobile && onCloseMobile?.()}
-                    title={collapsed ? item.name : undefined}
-                    className={cn(
-                      'flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                      isActive
-                        ? 'bg-primary text-white'
-                        : 'text-muted hover:bg-background hover:text-foreground'
-                    )}
-                  >
-                    <item.icon className={cn('w-5 h-5 shrink-0', collapsed ? 'mx-auto' : 'mr-3')} />
-                    {!collapsed && <span>{item.name}</span>}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+
       </nav>
 
       {/* User Section */}
