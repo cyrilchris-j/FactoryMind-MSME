@@ -8,20 +8,20 @@ import {
   Users,
   UserPlus,
   Mail,
-  Phone,
   Building2,
   MoreVertical,
   Loader2,
   RefreshCw,
   Search,
-  Filter,
-  Cpu
+  Cpu,
+  KeyRound,
+  Trash2,
+  X,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
-import { useEffect, useState, useCallback } from 'react';
-import { apiGet, apiPost } from '@/lib/api';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
 
 interface Manager {
   id: string;
@@ -33,13 +33,22 @@ interface Manager {
   created_at: string;
 }
 
+type ToastState = { type: 'success' | 'error'; message: string } | null;
+
 export default function ManagersPage() {
   const [managers, setManagers] = useState<Manager[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
+  // Dropdown state
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Toast
+  const [toast, setToast] = useState<ToastState>(null);
+
   // Add Manager State
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -48,7 +57,22 @@ export default function ManagersPage() {
     department: '',
     machineNumber: '',
   });
-  const [errorMsg, setErrorMsg] = useState('');
+  const [formError, setFormError] = useState('');
+
+  // Delete Modal
+  const [deleteTarget, setDeleteTarget] = useState<Manager | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Change Password Modal
+  const [pwTarget, setPwTarget] = useState<Manager | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [isChangingPw, setIsChangingPw] = useState(false);
+  const [pwError, setPwError] = useState('');
+
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const fetchManagers = useCallback(async () => {
     setLoading(true);
@@ -77,25 +101,86 @@ export default function ManagersPage() {
     fetchManagers();
   }, [fetchManagers]);
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   const handleAddManager = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setErrorMsg('');
+    setFormError('');
     try {
       await apiPost('/api/managers', formData);
-      setIsModalOpen(false);
+      setIsAddModalOpen(false);
       setFormData({ name: '', email: '', password: '', department: '', machineNumber: '' });
+      showToast('success', 'Manager added successfully!');
       fetchManagers();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to add manager');
+      setFormError(err.message || 'Failed to add manager');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteManager = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await apiDelete(`/api/managers/${deleteTarget.id}`);
+      setDeleteTarget(null);
+      showToast('success', `${deleteTarget.full_name} has been removed.`);
+      fetchManagers();
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to remove manager');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pwTarget) return;
+    setPwError('');
+    if (newPassword.length < 6) {
+      setPwError('Password must be at least 6 characters');
+      return;
+    }
+    setIsChangingPw(true);
+    try {
+      await apiPatch(`/api/managers/${pwTarget.id}/password`, { password: newPassword });
+      setPwTarget(null);
+      setNewPassword('');
+      showToast('success', `Password changed for ${pwTarget.full_name}`);
+    } catch (err: any) {
+      setPwError(err.message || 'Failed to change password');
+    } finally {
+      setIsChangingPw(false);
     }
   };
 
   return (
     <OwnerLayout>
       <div className="space-y-6">
+        {/* Toast */}
+        {toast && (
+          <div className={`fixed top-5 right-5 z-[100] flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-sm font-medium transition-all ${
+            toast.type === 'success'
+              ? 'bg-green-50 border border-green-200 text-green-800'
+              : 'bg-red-50 border border-red-200 text-red-800'
+          }`}>
+            {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+            {toast.message}
+          </div>
+        )}
+
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Team Managers</h1>
@@ -106,13 +191,14 @@ export default function ManagersPage() {
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button className="bg-primary hover:bg-primary/90 text-white" onClick={() => setIsModalOpen(true)}>
+            <Button className="bg-primary hover:bg-primary/90 text-white" onClick={() => setIsAddModalOpen(true)}>
               <UserPlus className="w-4 h-4 mr-2" />
               Add Manager
             </Button>
           </div>
         </div>
 
+        {/* Search */}
         <div className="flex space-x-2 mb-4">
           <div className="relative w-72">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted w-4 h-4" />
@@ -124,12 +210,9 @@ export default function ManagersPage() {
               className="w-full pl-10 pr-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
-          <Button variant="outline" size="sm" className="border-border h-10">
-            <Filter className="w-4 h-4 mr-2" />
-            Filter
-          </Button>
         </div>
 
+        {/* Manager Grid */}
         {loading ? (
           <div className="py-20 text-center text-muted">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
@@ -139,7 +222,7 @@ export default function ManagersPage() {
           <div className="py-20 text-center text-muted">
             <Users className="w-12 h-12 mx-auto mb-4 text-border" />
             <h3 className="text-lg font-medium text-foreground">No Managers Found</h3>
-            <p>You haven't added any managers yet.</p>
+            <p>You haven&apos;t added any managers yet.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -149,15 +232,41 @@ export default function ManagersPage() {
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
                     {manager.full_name.charAt(0)}
                   </div>
-                  <Button variant="ghost" size="icon" className="text-muted">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
+                  {/* Dropdown Menu */}
+                  <div className="relative" ref={openMenuId === manager.id ? menuRef : undefined}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted"
+                      onClick={() => setOpenMenuId(openMenuId === manager.id ? null : manager.id)}
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                    {openMenuId === manager.id && (
+                      <div className="absolute right-0 top-9 z-50 w-48 bg-white border border-border rounded-xl shadow-lg py-1 text-sm">
+                        <button
+                          className="flex items-center gap-2 w-full px-4 py-2 text-left hover:bg-background text-foreground"
+                          onClick={() => { setPwTarget(manager); setOpenMenuId(null); }}
+                        >
+                          <KeyRound className="w-4 h-4 text-blue-500" />
+                          Change Password
+                        </button>
+                        <button
+                          className="flex items-center gap-2 w-full px-4 py-2 text-left hover:bg-red-50 text-red-600"
+                          onClick={() => { setDeleteTarget(manager); setOpenMenuId(null); }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Remove Manager
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                
+
                 <h3 className="text-lg font-semibold text-foreground mb-1">
                   {manager.full_name}
                 </h3>
-                <div className="flex items-center gap-3 text-sm text-muted mb-4">
+                <div className="flex items-center gap-3 text-sm text-muted mb-4 flex-wrap">
                   <div className="flex items-center">
                     <Building2 className="w-3.5 h-3.5 mr-1.5" />
                     {manager.department} Department
@@ -175,19 +284,32 @@ export default function ManagersPage() {
                     <Mail className="w-4 h-4 mr-2 text-secondary" />
                     {manager.email}
                   </div>
-                  <div className="flex items-center text-sm text-muted">
-                    <Phone className="w-4 h-4 mr-2 text-secondary" />
-                    +91 98765 43210
-                  </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-4 border-t border-border">
                   <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
                     Active
                   </Badge>
-                  <Button variant="outline" size="sm" className="text-xs">
-                    View Profile
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                      onClick={() => setPwTarget(manager)}
+                    >
+                      <KeyRound className="w-3 h-3 mr-1" />
+                      Change Password
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={() => setDeleteTarget(manager)}
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Remove
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ))}
@@ -195,29 +317,34 @@ export default function ManagersPage() {
         )}
       </div>
 
-      {isModalOpen && (
+      {/* Add Manager Modal */}
+      {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative">
+            <button
+              className="absolute top-4 right-4 text-muted hover:text-foreground"
+              onClick={() => setIsAddModalOpen(false)}
+            >
+              <X className="w-5 h-5" />
+            </button>
             <h2 className="text-xl font-bold mb-4">Add New Manager</h2>
-            {errorMsg && <div className="mb-4 text-sm text-red-600 bg-red-50 p-3 rounded">{errorMsg}</div>}
-            
+            {formError && <div className="mb-4 text-sm text-red-600 bg-red-50 p-3 rounded">{formError}</div>}
+
             <form onSubmit={handleAddManager} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Full Name</label>
                 <input
-                  type="text"
-                  required
+                  type="text" required
                   className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   value={formData.name}
                   onChange={e => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Email Address</label>
                 <input
-                  type="email"
-                  required
+                  type="email" required
                   className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   value={formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
@@ -227,9 +354,7 @@ export default function ManagersPage() {
               <div>
                 <label className="block text-sm font-medium mb-1">Password</label>
                 <input
-                  type="password"
-                  required
-                  minLength={6}
+                  type="password" required minLength={6}
                   className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   value={formData.password}
                   onChange={e => setFormData({ ...formData, password: e.target.value })}
@@ -240,8 +365,7 @@ export default function ManagersPage() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Department</label>
                   <input
-                    type="text"
-                    required
+                    type="text" required
                     className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     value={formData.department}
                     onChange={e => setFormData({ ...formData, department: e.target.value })}
@@ -259,20 +383,104 @@ export default function ManagersPage() {
               </div>
 
               <div className="flex justify-end gap-3 mt-6">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={isSubmitting}
+                <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="bg-primary text-white hover:bg-primary/90" disabled={isSubmitting}>
+                  {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</> : 'Create Manager'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-sm p-6 relative">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <Trash2 className="w-7 h-7 text-red-600" />
+              </div>
+              <h2 className="text-lg font-bold text-foreground mb-2">Remove Manager</h2>
+              <p className="text-sm text-muted mb-1">
+                Are you sure you want to remove <strong>{deleteTarget.full_name}</strong>?
+              </p>
+              <p className="text-xs text-red-500 mb-6">
+                This will permanently delete their account and revoke all access.
+              </p>
+              <div className="flex gap-3 w-full">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setDeleteTarget(null)}
+                  disabled={isDeleting}
                 >
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
-                  className="bg-primary text-white hover:bg-primary/90"
-                  disabled={isSubmitting}
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleDeleteManager}
+                  disabled={isDeleting}
                 >
-                  {isSubmitting ? 'Creating...' : 'Create Manager'}
+                  {isDeleting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Removing...</> : 'Yes, Remove'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {pwTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-sm p-6 relative">
+            <button
+              className="absolute top-4 right-4 text-muted hover:text-foreground"
+              onClick={() => { setPwTarget(null); setNewPassword(''); setPwError(''); }}
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <KeyRound className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground">Change Password</h2>
+                <p className="text-xs text-muted">{pwTarget.full_name}</p>
+              </div>
+            </div>
+            {pwError && <div className="mb-3 text-sm text-red-600 bg-red-50 p-3 rounded">{pwError}</div>}
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">New Password</label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  placeholder="Min. 6 characters"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => { setPwTarget(null); setNewPassword(''); setPwError(''); }}
+                  disabled={isChangingPw}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={isChangingPw}
+                >
+                  {isChangingPw ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Updating...</> : 'Update Password'}
                 </Button>
               </div>
             </form>

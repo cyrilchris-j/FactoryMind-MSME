@@ -181,6 +181,62 @@ router.post('/managers', async (req: AuthRequest, res: Response) => {
   }
 })
 
+router.delete('/managers/:id', async (req: AuthRequest, res: Response) => {
+  if (req.role !== 'OWNER') {
+    res.status(403).json({ error: 'Only owners can remove managers' })
+    return
+  }
+  const managerId = req.params.id as string
+  try {
+    const managerDoc = await adminDb.collection('users').doc(managerId).get()
+    if (!managerDoc.exists) {
+      res.status(404).json({ error: 'Manager not found' })
+      return
+    }
+    const managerData = managerDoc.data() as any
+    if (managerData.factoryId !== req.factoryId) {
+      res.status(403).json({ error: 'Manager does not belong to your factory' })
+      return
+    }
+    await adminAuth.deleteUser(managerId)
+    await adminDb.collection('users').doc(managerId).delete()
+    res.json({ message: 'Manager removed successfully' })
+  } catch (err: any) {
+    console.error('Delete manager error:', err)
+    res.status(500).json({ error: 'Failed to remove manager' })
+  }
+})
+
+router.patch('/managers/:id/password', async (req: AuthRequest, res: Response) => {
+  if (req.role !== 'OWNER') {
+    res.status(403).json({ error: 'Only owners can change manager passwords' })
+    return
+  }
+  const managerId = req.params.id as string
+  const { password } = req.body
+  if (!password || password.length < 6) {
+    res.status(400).json({ error: 'Password must be at least 6 characters' })
+    return
+  }
+  try {
+    const managerDoc = await adminDb.collection('users').doc(managerId).get()
+    if (!managerDoc.exists) {
+      res.status(404).json({ error: 'Manager not found' })
+      return
+    }
+    const managerData = managerDoc.data() as any
+    if (managerData.factoryId !== req.factoryId) {
+      res.status(403).json({ error: 'Manager does not belong to your factory' })
+      return
+    }
+    await adminAuth.updateUser(managerId, { password })
+    res.json({ message: 'Password updated successfully' })
+  } catch (err: any) {
+    console.error('Update password error:', err)
+    res.status(500).json({ error: 'Failed to update password' })
+  }
+})
+
 router.get('/production', async (req: AuthRequest, res: Response) => {
   const { status, page = '1', limit = '20' } = req.query
   let query: any = adminDb.collection('production')
