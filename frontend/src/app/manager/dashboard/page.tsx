@@ -45,6 +45,7 @@ export default function ManagerDashboardPage() {
   const [currentAmps, setCurrentAmps] = useState('');
   const [workersPresent, setWorkersPresent] = useState('');
   const [workersAbsent, setWorkersAbsent] = useState('');
+  const [tomorrowTarget, setTomorrowTarget] = useState('');
   const [suggestion, setSuggestion] = useState('');
 
   // Excel upload state
@@ -77,6 +78,7 @@ export default function ManagerDashboardPage() {
         setCurrentAmps(String(myRecord.currentAmps || ''));
         setWorkersPresent(String(myRecord.workersPresent || ''));
         setWorkersAbsent(String(myRecord.workersAbsent || ''));
+        setTomorrowTarget(String(myRecord.tomorrowTarget || ''));
       }
     } catch (err) {
       console.error('Failed to fetch machine data', err);
@@ -108,6 +110,7 @@ export default function ManagerDashboardPage() {
         currentAmps: parseFloat(currentAmps) || 0,
         workersPresent: parseInt(workersPresent) || 0,
         workersAbsent: parseInt(workersAbsent) || 0,
+        tomorrowTarget: parseInt(tomorrowTarget) || 0,
       });
       setToast({ type: 'success', message: 'Production & energy data saved!' });
       await fetchMachineData();
@@ -243,26 +246,7 @@ export default function ManagerDashboardPage() {
           </div>
         </div>
 
-        {/* Status Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card className="p-4">
-            <p className="text-[10px] text-muted uppercase tracking-wide mb-1">Production</p>
-            <p className="text-xl font-bold text-foreground">{loading ? '—' : machineData?.partsProduced ?? 0}</p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-[10px] text-muted uppercase tracking-wide mb-1">Defects</p>
-            <p className="text-xl font-bold text-foreground">{loading ? '—' : machineData?.defects ?? 0}</p>
-            <p className="text-[10px] text-muted">{defectRate}%</p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-[10px] text-muted uppercase tracking-wide mb-1">Workers Present</p>
-            <p className="text-xl font-bold text-green-600">{loading ? '—' : machineData?.workersPresent ?? 0}</p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-[10px] text-muted uppercase tracking-wide mb-1">Energy (kWh)</p>
-            <p className="text-xl font-bold text-foreground">{loading ? '—' : machineData?.energyKwh ?? 0}</p>
-          </Card>
-        </div>
+
 
         {/* Main Grid: Left (Production + Energy), Right (Upload + Suggestion) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -297,6 +281,10 @@ export default function ManagerDashboardPage() {
                 <div className="space-y-1.5">
                   <Label>Workers Absent</Label>
                   <Input type="number" min="0" placeholder="e.g. 1" value={workersAbsent} onChange={(e) => setWorkersAbsent(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Tomorrow's Target</Label>
+                  <Input type="number" min="0" placeholder="e.g. 600" value={tomorrowTarget} onChange={(e) => setTomorrowTarget(e.target.value)} />
                 </div>
               </div>
               <Button onClick={handleSaveProduction} disabled={saving} className="w-full mt-4 bg-primary hover:bg-primary/90 text-white">

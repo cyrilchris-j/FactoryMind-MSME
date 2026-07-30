@@ -1320,7 +1320,7 @@ router.get('/machine-production/today', async (req: AuthRequest, res: Response) 
 })
 
 router.post('/machine-production', async (req: AuthRequest, res: Response) => {
-  const { machineNumber, partsProduced, defects, energyKwh, currentAmps, workersPresent, workersAbsent, shift } = req.body
+  const { machineNumber, partsProduced, defects, energyKwh, currentAmps, workersPresent, workersAbsent, shift, tomorrowTarget } = req.body
   if (!machineNumber || machineNumber < 1 || machineNumber > 10) {
     res.status(400).json({ error: 'machineNumber must be 1-10' })
     return
@@ -1349,6 +1349,7 @@ router.post('/machine-production', async (req: AuthRequest, res: Response) => {
         currentAmps: Number(currentAmps || 0),
         workersPresent: Number(workersPresent || 0),
         workersAbsent: Number(workersAbsent || 0),
+        tomorrowTarget: Number(tomorrowTarget || 0),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
@@ -1362,6 +1363,7 @@ router.post('/machine-production', async (req: AuthRequest, res: Response) => {
         currentAmps: Number(currentAmps || 0),
         workersPresent: Number(workersPresent || 0),
         workersAbsent: Number(workersAbsent || 0),
+        tomorrowTarget: Number(tomorrowTarget || 0),
         managerName,
         updatedAt: new Date().toISOString(),
       })
