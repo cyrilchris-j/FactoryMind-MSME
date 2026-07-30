@@ -390,8 +390,6 @@ export default function ManualDataEntryPage() {
                   {errors.date && <p className="text-xs text-red-500">{errors.date}</p>}
                 </div>
 
-                </div>
-
                 {/* Machine */}
                 <div className="space-y-1.5">
                   <Label htmlFor="machine">Production Machine <span className="text-red-500">*</span></Label>
