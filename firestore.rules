@@ -27,135 +27,112 @@ service cloud.firestore {
       return isAuth() && role() == 'OWNER';
     }
 
-    function isManager() {
-      return isAuth() && role() == 'MANAGER';
-    }
-
-    function sameFactoryAsDoc() {
-      return isAuth() && userFactoryId() == resource.data.factoryId;
-    }
-
-    function sameFactoryAsRequest() {
-      return isAuth() && userFactoryId() == request.resource.data.factoryId;
-    }
-
-    function factoryDataRead() {
-      return sameFactoryAsDoc();
-    }
-
-    function factoryDataCreate() {
-      return sameFactoryAsRequest();
-    }
-
-    function factoryDataUpdate() {
-      return isAuth()
-        && userFactoryId() == resource.data.factoryId
-        && request.resource.data.factoryId == resource.data.factoryId;
-    }
-
-    function factoryDataDelete() {
-      return isOwner() && sameFactoryAsDoc();
+    function isSameFactory(factoryId) {
+      return isAuth() && userFactoryId() == factoryId;
     }
 
     // === USERS ===
-    // OWNER can read all users in their factory.
-    // MANAGER (and owner) can read/write their own document.
+    // Users can read/write their own document.
+    // OWNER can read other users in the same factory.
     match /users/{userId} {
       allow read: if isAuth() && (
         request.auth.uid == userId
-        || (isOwner()
-            && userFactoryId()
-                == get(/databases/$(database)/documents/users/$(userId)).data.factoryId)
+        || (isOwner() && isSameFactory(resource.data.factoryId))
       );
-      allow create: if request.auth.uid == userId;
-      allow update: if request.auth.uid == userId;
-      allow delete: if request.auth.uid == userId;
+      
+      // Allow creation of own profile during sign-up
+      allow create: if isAuth() && request.auth.uid == userId;
+      
+      // Allow self-updates but prevent role escalation, factory ID manipulation, or changing creation date
+      allow update: if isAuth() && request.auth.uid == userId && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'factoryId', 'createdAt'])
+      );
+      
+      // Owner can remove users of their factory, and users can delete their own accounts
+      allow delete: if isAuth() && (
+        request.auth.uid == userId 
+        || (isOwner() && isSameFactory(resource.data.factoryId))
+      );
     }
 
     // === FACTORIES ===
+    // Direct client writes are not allowed. Read is allowed if authenticated and matching factory ID.
     match /factories/{fid} {
       allow read: if isAuth() && userFactoryId() == fid;
-      allow write: if isOwner() && userFactoryId() == fid;
+      allow write: if false;
     }
 
-    // === MACHINES ===
+    // === COLLECTIONS IN THE SAME FACTORY ===
+    // Client SDK can read data belonging to their factory.
+    // Client SDK cannot perform direct writes (create/update/delete) as they must go through Backend API validation.
     match /machines/{doc} {
-      allow read: if factoryDataRead();
-      allow create: if factoryDataCreate();
-      allow update: if factoryDataUpdate();
-      allow delete: if factoryDataDelete();
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
     }
 
-    // === WORKERS ===
     match /workers/{doc} {
-      allow read: if factoryDataRead();
-      allow create: if factoryDataCreate();
-      allow update: if factoryDataUpdate();
-      allow delete: if factoryDataDelete();
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
     }
 
-    // === PRODUCTION ===
     match /production/{doc} {
-      allow read: if factoryDataRead();
-      allow create: if factoryDataCreate();
-      allow update: if factoryDataUpdate();
-      allow delete: if factoryDataDelete();
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
     }
 
-    // === INVENTORY ===
     match /inventory/{doc} {
-      allow read: if factoryDataRead();
-      allow create: if factoryDataCreate();
-      allow update: if factoryDataUpdate();
-      allow delete: if factoryDataDelete();
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
     }
 
-    // === MAINTENANCE ===
     match /maintenance/{doc} {
-      allow read: if factoryDataRead();
-      allow create: if factoryDataCreate();
-      allow update: if factoryDataUpdate();
-      allow delete: if factoryDataDelete();
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
     }
 
-    // === ENERGY ===
     match /energy/{doc} {
-      allow read: if factoryDataRead();
-      allow create: if factoryDataCreate();
-      allow update: if factoryDataUpdate();
-      allow delete: if factoryDataDelete();
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
     }
 
-    // === SALES ===
     match /sales/{doc} {
-      allow read: if factoryDataRead();
-      allow create: if factoryDataCreate();
-      allow update: if factoryDataUpdate();
-      allow delete: if factoryDataDelete();
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
     }
 
-    // === NOTIFICATIONS ===
     match /notifications/{doc} {
-      allow read: if factoryDataRead();
-      allow create: if factoryDataCreate();
-      allow update: if factoryDataUpdate();
-      allow delete: if factoryDataDelete();
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
     }
 
-    // === MACHINE DAILY PRODUCTION ===
     match /machine_daily_production/{doc} {
-      allow read: if factoryDataRead();
-      allow create: if factoryDataCreate();
-      allow update: if factoryDataUpdate();
-      allow delete: if factoryDataDelete();
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
     }
 
-    // === MACHINE SUGGESTIONS ===
     match /machine_suggestions/{doc} {
-      allow read: if factoryDataRead();
-      allow create: if factoryDataCreate();
-      allow update: if factoryDataUpdate();
-      allow delete: if factoryDataDelete();
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
+    }
+
+    match /products/{doc} {
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
+    }
+
+    match /bill_of_materials/{doc} {
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
+    }
+
+    match /components/{doc} {
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
+    }
+
+    match /customer_orders/{doc} {
+      allow read: if isSameFactory(resource.data.factoryId);
+      allow write: if false;
     }
   }
 }
