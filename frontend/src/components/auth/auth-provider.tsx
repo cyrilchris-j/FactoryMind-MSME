@@ -170,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       return { role }
     } catch (err: any) {
-      return { error: 'Invalid email or password' }
+      return { error: 'Not authenticated to this company' }
     }
   }
 
