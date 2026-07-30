@@ -46,52 +46,41 @@ const allNavigation = {
     { name: 'Add Stock', href: '/manager/inventory?tab=add', icon: Plus },
     { name: 'Upload Excel/CSV', href: '/manager/inventory?tab=upload', icon: UploadCloud },
     { name: 'Submission History', href: '/manager/history', icon: History },
-    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
   ],
   Production: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
-    { name: 'Production Entry', href: '/manager/production', icon: Plus },
-    { name: 'Overall Production View', href: '/manager/production-overview', icon: BarChart3 },
     { name: 'Submission History', href: '/manager/history', icon: History },
-    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
   ],
   Component: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'My Component', href: '/manager/my-component', icon: Target },
-    { name: 'Production Status', href: '/manager/production-overview', icon: BarChart3 },
     { name: 'Submission History', href: '/manager/history', icon: History },
-    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
   ],
   Maintenance: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Maintenance Entry', href: '/manager/maintenance', icon: Wrench },
     { name: 'Machine Status', href: '/manager/maintenance?tab=machines', icon: Wrench },
     { name: 'Submission History', href: '/manager/history', icon: History },
-    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
   ],
   Quality: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Quality Entry', href: '/manager/quality', icon: ShieldCheck },
     { name: 'Submission History', href: '/manager/history', icon: History },
-    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
   ],
   Workforce: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Attendance Entry', href: '/manager/workforce', icon: Users },
     { name: 'Submission History', href: '/manager/history', icon: History },
-    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
   ],
   Energy: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Energy Entry', href: '/manager/energy', icon: Zap },
     { name: 'Submission History', href: '/manager/history', icon: History },
-    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
   ],
   Orders: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Order Entry', href: '/manager/orders', icon: ShoppingCart },
     { name: 'Submission History', href: '/manager/history', icon: History },
-    { name: 'Notifications', href: '/manager/notifications', icon: Bell },
   ],
 }
 
@@ -99,7 +88,6 @@ const defaultNavigation = [
   { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
   { name: 'Data Entry', href: '/manager/data-entry', icon: Plus },
   { name: 'Submission History', href: '/manager/history', icon: History },
-  { name: 'Notifications', href: '/manager/notifications', icon: Bell },
 ]
 
 const bottomNav = [
