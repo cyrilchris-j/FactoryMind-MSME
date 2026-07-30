@@ -119,6 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             isLoading: false,
           })
         } else {
+          await updateTokenCookie(null)
+          await signOut(auth)
           setState({
             user: null,
             firebaseUser: null,
@@ -152,7 +154,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       // Fetch profile to get role and set role cookie for middleware fallback
       const profile = await fetchProfile(cred.user.uid)
-      const role = profile?.role || 'OWNER'
+      
+      if (!profile) {
+        await signOut(auth)
+        deleteCookie('__session', { path: '/' })
+        return { error: 'Not authenticated to this company' }
+      }
+
+      const role = profile.role
       setCookie('user_role', role, {
         maxAge: 60 * 60,
         path: '/',
