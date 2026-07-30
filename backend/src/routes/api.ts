@@ -198,12 +198,20 @@ router.delete('/managers/:id', async (req: AuthRequest, res: Response) => {
       res.status(403).json({ error: 'Manager does not belong to your factory' })
       return
     }
-    await adminAuth.deleteUser(managerId)
+    // Delete from Firebase Auth (ignore if user already deleted from auth)
+    try {
+      await adminAuth.deleteUser(managerId)
+    } catch (authErr: any) {
+      if (authErr.code !== 'auth/user-not-found') throw authErr
+      console.warn('Auth user already deleted, cleaning up Firestore only')
+    }
+    // Delete from Firestore
     await adminDb.collection('users').doc(managerId).delete()
+    console.log(`Manager ${managerId} removed from Firebase Auth + Firestore`)
     res.json({ message: 'Manager removed successfully' })
   } catch (err: any) {
     console.error('Delete manager error:', err)
-    res.status(500).json({ error: 'Failed to remove manager' })
+    res.status(500).json({ error: err.message || 'Failed to remove manager' })
   }
 })
 
@@ -229,11 +237,17 @@ router.patch('/managers/:id/password', async (req: AuthRequest, res: Response) =
       res.status(403).json({ error: 'Manager does not belong to your factory' })
       return
     }
+    // Update password in Firebase Auth
     await adminAuth.updateUser(managerId, { password })
+    console.log(`Password updated in Firebase Auth for manager ${managerId}`)
     res.json({ message: 'Password updated successfully' })
   } catch (err: any) {
     console.error('Update password error:', err)
-    res.status(500).json({ error: 'Failed to update password' })
+    if (err.code === 'auth/user-not-found') {
+      res.status(404).json({ error: 'Manager Firebase account not found' })
+    } else {
+      res.status(500).json({ error: err.message || 'Failed to update password' })
+    }
   }
 })
 
