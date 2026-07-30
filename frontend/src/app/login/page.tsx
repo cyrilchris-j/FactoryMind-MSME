@@ -5,22 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Factory, Mail, Lock, Eye, EyeOff, AlertCircle, Package, Eye as EyeIcon } from 'lucide-react';
+import { Factory, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
 import Link from 'next/link';
-
-const COMPONENT_DEMOS = [
-  { code: 'BRAKE_DISC', name: 'Brake Disc', email: 'brakedisc@factorymind.ai' },
-  { code: 'BRAKE_CALIPER', name: 'Brake Caliper', email: 'caliper@factorymind.ai' },
-  { code: 'BRAKE_PAD', name: 'Brake Pad', email: 'brakepad@factorymind.ai' },
-  { code: 'PISTON', name: 'Piston', email: 'piston@factorymind.ai' },
-  { code: 'CALIPER_BRACKET', name: 'Caliper Bracket', email: 'bracket@factorymind.ai' },
-  { code: 'GUIDE_PIN', name: 'Guide Pin', email: 'guidepin@factorymind.ai' },
-  { code: 'SEAL_RING', name: 'Seal Ring', email: 'sealring@factorymind.ai' },
-  { code: 'DUST_BOOT', name: 'Dust Boot', email: 'dustboot@factorymind.ai' },
-  { code: 'BOLT_KIT', name: 'Bolt Kit', email: 'boltkid@factorymind.ai' },
-  { code: 'WEAR_SENSOR', name: 'Wear Sensor', email: 'wearsensor@factorymind.ai' },
-];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -54,11 +41,6 @@ export default function LoginPage() {
     }
   };
 
-  const fillDemo = (email: string, pw: string = 'demo1234') => {
-    setEmail(email);
-    setPassword(pw);
-  };
-
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Factory Illustration */}
@@ -75,52 +57,22 @@ export default function LoginPage() {
           <div className="mb-8">
             <Factory className="w-24 h-24 text-white/90" />
           </div>
-          <h1 className="text-4xl font-bold mb-4">FactoryMind AI</h1>
+          <h1 className="text-4xl font-bold mb-4">Factory MSME</h1>
           <p className="text-xl text-white/80 text-center max-w-md">
-            AI-Powered Decision Intelligence for Modern Manufacturing
+            Production &amp; Workforce Management Platform
           </p>
           <div className="mt-12 grid grid-cols-3 gap-8 text-center">
             <div>
-              <div className="text-3xl font-bold">50+</div>
+              <div className="text-3xl font-bold">10</div>
               <div className="text-sm text-white/60">Machines</div>
             </div>
             <div>
-              <div className="text-3xl font-bold">6</div>
-              <div className="text-sm text-white/60">Departments</div>
+              <div className="text-3xl font-bold">10</div>
+              <div className="text-sm text-white/60">Managers</div>
             </div>
             <div>
-              <div className="text-3xl font-bold">Real-Time</div>
-              <div className="text-sm text-white/60">AI Insights</div>
-            </div>
-          </div>
-
-          {/* Demo Credentials */}
-          <div className="mt-8 w-full max-w-sm">
-            <p className="text-white/50 text-xs text-center mb-3 uppercase tracking-wider">Demo Accounts</p>
-            
-            {/* Owner Account */}
-            <button
-              onClick={() => fillDemo('cyrilchrisj@gmail.com', 'MaxVerstappen33')}
-              className="w-full mb-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg p-2.5 text-left transition-colors"
-            >
-              <p className="text-[10px] text-white/60 mb-0.5">Factory Owner</p>
-              <p className="text-xs font-semibold text-white">Prime Auto Components</p>
-            </button>
-
-            <p className="text-white/50 text-[10px] text-center mb-2 uppercase tracking-wider">10 Component Managers</p>
-            
-            {/* Manager Accounts Grid */}
-            <div className="grid grid-cols-2 gap-1.5">
-              {COMPONENT_DEMOS.map(c => (
-                <button
-                  key={c.code}
-                  onClick={() => fillDemo(c.email)}
-                  className="bg-white/5 hover:bg-white/15 border border-white/10 rounded p-1.5 text-left transition-colors"
-                >
-                  <p className="text-[9px] text-white/40 font-mono">{c.code}</p>
-                  <p className="text-[10px] font-medium text-white">{c.name}</p>
-                </button>
-              ))}
+              <div className="text-3xl font-bold">Live</div>
+              <div className="text-sm text-white/60">Dashboard</div>
             </div>
           </div>
         </div>
@@ -132,7 +84,7 @@ export default function LoginPage() {
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-8">
             <Factory className="w-12 h-12 text-primary mr-3" />
-            <span className="text-2xl font-bold text-primary">FactoryMind AI</span>
+            <span className="text-2xl font-bold text-primary">Factory MSME</span>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm p-8">
@@ -216,7 +168,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-8 text-center text-sm text-muted">
-            <p>Industry 4.0 & 5.0 Ready · Secured by Firebase Auth</p>
+            <p>Production Management System</p>
           </div>
         </div>
       </div>
