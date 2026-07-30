@@ -88,10 +88,11 @@ export function NotificationDropdown() {
   };
 
   useEffect(() => {
+    if (!user) return;
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
