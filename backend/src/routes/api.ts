@@ -140,6 +140,20 @@ router.post('/managers', async (req: AuthRequest, res: Response) => {
   }
 
   try {
+    if (machineNumber) {
+      const num = Number(machineNumber);
+      const existingMachine = await adminDb.collection('users')
+        .where('factoryId', '==', req.factoryId)
+        .where('role', '==', 'MANAGER')
+        .where('machineNumber', '==', num)
+        .get();
+
+      if (!existingMachine.empty) {
+        res.status(400).json({ error: 'Manager for this machine already exists' });
+        return;
+      }
+    }
+
     const userRecord = await adminAuth.createUser({
       email,
       password,
@@ -158,8 +172,12 @@ router.post('/managers', async (req: AuthRequest, res: Response) => {
 
     res.status(201).json({ id: userRecord.uid, message: 'Manager created successfully' })
   } catch (err: any) {
-    console.error('Failed to create manager:', err)
-    res.status(500).json({ error: err.message || 'Failed to create manager' })
+    console.error('Add manager error:', err)
+    if (err.code === 'auth/email-already-exists') {
+      res.status(400).json({ error: 'Email already exists' })
+    } else {
+      res.status(500).json({ error: 'Failed to create manager' })
+    }
   }
 })
 
