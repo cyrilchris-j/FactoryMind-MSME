@@ -31,7 +31,7 @@ export default function ProductionManagerPage() {
     const form = new FormData(e.currentTarget);
     const payload = {
       date: form.get('date'),
-      shift: form.get('shift'),
+      shift: 'General',
       productName: 'Automotive Brake Assembly',
       machineCode: form.get('machineCode'),
       targetQuantity: parseInt(form.get('targetQty') as string),
@@ -84,14 +84,6 @@ export default function ProductionManagerPage() {
               <div className="space-y-1.5">
                 <Label>Date</Label>
                 <Input type="date" name="date" defaultValue={today} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Shift</Label>
-                <Select name="shift" required defaultValue="Morning">
-                  <option value="Morning">Morning (6 AM – 2 PM)</option>
-                  <option value="Evening">Evening (2 PM – 10 PM)</option>
-                  <option value="Night">Night (10 PM – 6 AM)</option>
-                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Production Line / Machine</Label>

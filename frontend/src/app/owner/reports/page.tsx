@@ -17,31 +17,30 @@ export default function ReportsPage() {
   const [fromDate, setFromDate] = useState(todayStr);
   const [toDate, setToDate] = useState(todayStr);
   const [monthYear, setMonthYear] = useState(todayStr.slice(0, 7));
-  const [shiftFilter, setShiftFilter] = useState('');
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
-      const res: any = await apiGet(`/api/machine-production/range?startDate=${fromDate}&endDate=${toDate}${shiftFilter ? `&shift=${shiftFilter}` : ''}`);
+      const res: any = await apiGet(`/api/machine-production/range?startDate=${fromDate}&endDate=${toDate}`);
       setRecords((res.data ?? []).filter((r: any) => r.partsProduced > 0 || r.defects > 0 || r.energyKwh > 0));
     } catch (err) {
       console.error('Failed to fetch history', err);
     }
     setLoading(false);
-  }, [fromDate, toDate, shiftFilter]);
+  }, [fromDate, toDate]);
 
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
   const downloadCSV = () => {
     if (records.length === 0) { alert('No records to download.'); return; }
-    const headers = ['Date', 'Shift', 'Machine', 'Parts Produced', 'Defects', 'Energy (kWh)', 'Current (Amps)', 'Workers Present', 'Workers Absent'];
-    const rows = records.map((r: any) => [r.date, r.shift || 'General', `Machine ${r.machineNumber}`, r.partsProduced, r.defects, r.energyKwh || 0, r.currentAmps || 0, r.workersPresent || 0, r.workersAbsent || 0]);
+    const headers = ['Date', 'Machine', 'Parts Produced', 'Defects', 'Energy (kWh)', 'Current (Amps)', 'Workers Present', 'Workers Absent'];
+    const rows = records.map((r: any) => [r.date, `Machine ${r.machineNumber}`, r.partsProduced, r.defects, r.energyKwh || 0, r.currentAmps || 0, r.workersPresent || 0, r.workersAbsent || 0]);
     const csvContent = [headers.join(','), ...rows.map((r: any) => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Report_${fromDate}_to_${toDate}${shiftFilter ? '_' + shiftFilter : ''}.csv`;
+    a.download = `Report_${fromDate}_to_${toDate}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -92,18 +91,7 @@ export default function ReportsPage() {
                 setToDate(`${y}-${m}-${String(lastDay).padStart(2, '0')}`);
               }} className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background" />
             </div>
-            <div>
-              <label className="text-xs text-muted block mb-1">Shift</label>
-              <select value={shiftFilter} onChange={e => setShiftFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background">
-                <option value="">All Shifts</option>
-                <option value="General">General</option>
-                <option value="Morning">Morning</option>
-                <option value="Afternoon">Afternoon</option>
-                <option value="Night">Night</option>
-              </select>
             </div>
-          </div>
         </Card>
 
         <Card className="p-5">
@@ -118,7 +106,6 @@ export default function ReportsPage() {
                 <thead>
                   <tr className="border-b border-border bg-background">
                     <th className="text-left py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Date</th>
-                    <th className="text-left py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Shift</th>
                     <th className="text-left py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Machine</th>
                     <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Parts Produced</th>
                     <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Defects</th>
@@ -132,14 +119,7 @@ export default function ReportsPage() {
                   {records.map((r: any, i: number) => (
                     <tr key={r.id || i} className="border-b border-border last:border-0 hover:bg-background/50">
                       <td className="py-3 px-3 text-foreground whitespace-nowrap">{r.date}</td>
-                      <td className="py-3 px-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          r.shift === 'Morning' ? 'bg-amber-100 text-amber-800' :
-                          r.shift === 'Afternoon' ? 'bg-orange-100 text-orange-800' :
-                          r.shift === 'Night' ? 'bg-indigo-100 text-indigo-800' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>{r.shift || 'General'}</span>
-                      </td>
+
                       <td className="py-3 px-3"><Cpu className="w-3.5 h-3.5 text-blue-500 inline mr-1" />Machine {r.machineNumber}</td>
                       <td className="py-3 px-3 text-right">{r.partsProduced}</td>
                       <td className="py-3 px-3 text-right">{r.defects}</td>

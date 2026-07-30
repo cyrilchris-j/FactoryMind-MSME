@@ -39,7 +39,7 @@ export default function QualityManagerPage() {
       defectType: form.get('defectType'),
       rejectionReason: form.get('rejectionReason'),
       date: new Date().toISOString().split('T')[0],
-      shift: form.get('shift'),
+      shift: 'General',
       notes: form.get('notes') || '',
     };
     try {
@@ -84,14 +84,6 @@ export default function QualityManagerPage() {
               <div className="space-y-1.5">
                 <Label>Batch / Lot Number</Label>
                 <Input name="batch" placeholder="e.g. BATCH-001" required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Shift</Label>
-                <Select name="shift" required>
-                  <option value="Morning">Morning</option>
-                  <option value="Evening">Evening</option>
-                  <option value="Night">Night</option>
-                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Inspected Quantity</Label>

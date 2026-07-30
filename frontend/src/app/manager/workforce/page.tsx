@@ -33,7 +33,7 @@ export default function WorkforceManagerPage() {
       requiredWorkers: parseInt(form.get('required') as string) || 0,
       present: parseInt(form.get('present') as string) || 0,
       absent: parseInt(form.get('absent') as string) || 0,
-      shift: form.get('shift'),
+      shift: 'General',
       overtime: parseInt(form.get('overtime') as string) || 0,
       date: new Date().toISOString().split('T')[0],
       notes: form.get('notes') || '',
@@ -88,14 +88,6 @@ export default function WorkforceManagerPage() {
               <div className="space-y-1.5">
                 <Label>Absent</Label>
                 <Input type="number" name="absent" min="0" defaultValue="0" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Shift</Label>
-                <Select name="shift" required>
-                  <option value="Morning">Morning</option>
-                  <option value="Evening">Evening</option>
-                  <option value="Night">Night</option>
-                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Overtime (Hours)</Label>

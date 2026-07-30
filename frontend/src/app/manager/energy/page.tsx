@@ -31,7 +31,7 @@ export default function EnergyManagerPage() {
     const hours = parseFloat(form.get('hours') as string) || 0;
     const payload = {
       machineCode: form.get('machine'),
-      shift: form.get('shift'),
+      shift: 'General',
       workingHours: hours,
       energyConsumptionKwh: kwh,
       productionOutput: output,
@@ -85,14 +85,6 @@ export default function EnergyManagerPage() {
               <div className="space-y-1.5">
                 <Label>Machine / Line</Label>
                 <Input name="machine" placeholder="e.g. CNC-01, ASSY-01" required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Shift</Label>
-                <Select name="shift" required>
-                  <option value="Morning">Morning</option>
-                  <option value="Evening">Evening</option>
-                  <option value="Night">Night</option>
-                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Working Hours</Label>
