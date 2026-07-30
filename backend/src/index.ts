@@ -12,16 +12,20 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(helmet());
+
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
+  // Add your Vercel frontend URL here after deploying frontend
+  ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
 ];
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (e.g. curl, Postman) or matched origins
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow requests with no origin (e.g. curl, Postman, same-server calls) or matched origins
+    if (!origin || allowedOrigins.some(o => origin.startsWith(o) || origin === o)) {
       callback(null, true);
     } else {
       callback(new Error(`CORS: origin ${origin} not allowed`));
@@ -29,6 +33,7 @@ app.use(cors({
   },
   credentials: true,
 }));
+
 app.use(express.json({ limit: '10mb' }));
 
 const limiter = rateLimit({
@@ -49,8 +54,12 @@ app.use((_req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-app.listen(PORT, () => {
-  console.log(`🏭 FactoryMind AI API running on http://localhost:${PORT}`);
-});
+// Only start listening when NOT running on Vercel (local dev)
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`🏭 FactoryMind AI API running on http://localhost:${PORT}`);
+  });
+}
 
 export default app;
+
