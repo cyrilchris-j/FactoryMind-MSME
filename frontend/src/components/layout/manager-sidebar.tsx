@@ -22,6 +22,7 @@ import {
   UploadCloud,
   BarChart3,
   Target,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -46,41 +47,49 @@ const allNavigation = {
     { name: 'Add Stock', href: '/manager/inventory?tab=add', icon: Plus },
     { name: 'Upload Excel/CSV', href: '/manager/inventory?tab=upload', icon: UploadCloud },
     { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Message Owner', href: '/manager/message-owner', icon: MessageSquare },
   ],
   Production: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Message Owner', href: '/manager/message-owner', icon: MessageSquare },
   ],
   Component: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'My Component', href: '/manager/my-component', icon: Target },
     { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Message Owner', href: '/manager/message-owner', icon: MessageSquare },
   ],
   Maintenance: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Maintenance Entry', href: '/manager/maintenance', icon: Wrench },
     { name: 'Machine Status', href: '/manager/maintenance?tab=machines', icon: Wrench },
     { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Message Owner', href: '/manager/message-owner', icon: MessageSquare },
   ],
   Quality: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Quality Entry', href: '/manager/quality', icon: ShieldCheck },
     { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Message Owner', href: '/manager/message-owner', icon: MessageSquare },
   ],
   Workforce: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Attendance Entry', href: '/manager/workforce', icon: Users },
     { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Message Owner', href: '/manager/message-owner', icon: MessageSquare },
   ],
   Energy: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Energy Entry', href: '/manager/energy', icon: Zap },
     { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Message Owner', href: '/manager/message-owner', icon: MessageSquare },
   ],
   Orders: [
     { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Order Entry', href: '/manager/orders', icon: ShoppingCart },
     { name: 'Submission History', href: '/manager/history', icon: History },
+    { name: 'Message Owner', href: '/manager/message-owner', icon: MessageSquare },
   ],
 }
 
@@ -88,6 +97,7 @@ const defaultNavigation = [
   { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
   { name: 'Data Entry', href: '/manager/data-entry', icon: Plus },
   { name: 'Submission History', href: '/manager/history', icon: History },
+  { name: 'Message Owner', href: '/manager/message-owner', icon: MessageSquare },
 ]
 
 

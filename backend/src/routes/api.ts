@@ -410,9 +410,45 @@ router.get('/notifications', async (req: AuthRequest, res: Response) => {
     .where('factoryId', '==', req.factoryId!)
     .get()
   let list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  
+  // Filter for recipient
+  list = list.filter((n: any) => {
+    if (n.recipientId && n.recipientId !== req.uid) return false;
+    if (n.recipientRole && n.recipientRole !== req.role) return false;
+    return true;
+  })
+
   list.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   list = list.slice(0, 50)
   res.json(list)
+})
+
+router.post('/messages', async (req: AuthRequest, res: Response) => {
+  const { message, recipientId, recipientRole } = req.body
+  if (!message) {
+    res.status(400).json({ error: 'message is required' })
+    return
+  }
+
+  const newNotification = {
+    factoryId: req.factoryId,
+    type: 'MESSAGE',
+    title: `Message from ${req.name || 'User'}`,
+    message,
+    severity: 'INFO',
+    isRead: false,
+    createdAt: new Date().toISOString(),
+    recipientId: recipientId || null,
+    recipientRole: recipientRole || null,
+  }
+
+  try {
+    const docRef = await adminDb.collection('notifications').add(newNotification)
+    res.status(201).json({ id: docRef.id, message: 'Message sent successfully' })
+  } catch (err) {
+    console.error('Failed to send message:', err)
+    res.status(500).json({ error: 'Failed to send message' })
+  }
 })
 
 router.patch('/notifications/:id/read', async (req: AuthRequest, res: Response) => {

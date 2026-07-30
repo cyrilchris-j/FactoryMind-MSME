@@ -16,6 +16,7 @@ import {
   ChevronRight,
   UserCircle,
   LogOut,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -27,6 +28,7 @@ const navigation = [
   { name: 'Energy', href: '/owner/energy', icon: Zap },
   { name: 'AI Factory Copilot', href: '/owner/ai-copilot', icon: Sparkles },
   { name: 'Reports', href: '/owner/reports', icon: FileBarChart },
+  { name: 'Message Manager', href: '/owner/message-manager', icon: MessageSquare },
 ];
 
 
