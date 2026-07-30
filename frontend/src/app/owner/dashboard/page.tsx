@@ -350,7 +350,7 @@ export default function OwnerDashboard() {
           </Card>
 
           {/* AI Factory Copilot */}
-          <Card className="p-5 bg-gradient-to-r from-slate-50 to-purple-50/30 border-purple-100/50">
+          <Card className="p-5 bg-linear-to-r from-slate-50 to-purple-50/30 border-purple-100/50">
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-5 h-5 text-purple-600" />
               <h2 className="text-base font-bold text-foreground">AI Factory Copilot</h2>

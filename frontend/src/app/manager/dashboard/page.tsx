@@ -404,7 +404,7 @@ export default function ManagerDashboardPage() {
           {/* Right Sidebar: Template + Suggestions */}
           <div className="space-y-6">
             {/* Template Download */}
-            <Card className="p-5 bg-lin to-emerald-50/30 border-green-100/50">
+            <Card className="p-5 bg-linear-to-br from-green-50/50 border-green-100/50">
               <div className="flex items-center gap-2 mb-3">
                 <Download className="w-4 h-4 text-green-600" />
                 <h3 className="text-sm font-bold text-foreground">Excel Template</h3>
