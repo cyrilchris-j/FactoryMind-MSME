@@ -33,7 +33,7 @@ interface AuthState {
 }
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<{ error?: string }>
+  login: (email: string, password: string) => Promise<{ error?: string; role?: string }>
   register: (email: string, password: string, name: string, role: 'OWNER' | 'MANAGER', factoryId?: string, componentCode?: string) => Promise<{ error?: string }>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
@@ -140,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe()
   }, [])
 
-  const login = async (email: string, password: string): Promise<{ error?: string }> => {
+  const login = async (email: string, password: string): Promise<{ error?: string; role?: string }> => {
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password)
       const token = await getIdToken(cred.user)
@@ -159,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sameSite: 'lax',
         secure: process.env.NODE_ENV === 'production',
       })
-      return {}
+      return { role }
     } catch (err: any) {
       return { error: 'Invalid email or password' }
     }

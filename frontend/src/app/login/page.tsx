@@ -42,7 +42,11 @@ export default function LoginPage() {
         setError(result.error);
         return;
       }
-      router.push('/dashboard');
+      if (result.role === 'OWNER') {
+        router.push('/owner/dashboard');
+      } else {
+        router.push('/manager/dashboard');
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
@@ -91,39 +95,33 @@ export default function LoginPage() {
           </div>
 
           {/* Demo Credentials */}
-          <div className="mt-10 w-full max-w-sm">
+          <div className="mt-8 w-full max-w-sm">
             <p className="text-white/50 text-xs text-center mb-3 uppercase tracking-wider">Demo Accounts</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => fillDemo('cyrilchrisj@gmail.com', 'MaxVerstappen33')}
-                className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg p-2.5 text-left transition-colors"
-              >
-                <p className="text-[10px] text-white/60 mb-0.5">Factory Owner</p>
-                <p className="text-xs font-semibold text-white">Prime Auto Components</p>
-              </button>
-              <button
-                onClick={() => fillDemo('production@factorymind.ai')}
-                className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg p-2.5 text-left transition-colors"
-              >
-                <p className="text-[10px] text-white/60 mb-0.5">11th Manager</p>
-                <p className="text-xs font-semibold text-white">Overall Production</p>
-              </button>
+            
+            {/* Owner Account */}
+            <button
+              onClick={() => fillDemo('cyrilchrisj@gmail.com', 'MaxVerstappen33')}
+              className="w-full mb-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg p-2.5 text-left transition-colors"
+            >
+              <p className="text-[10px] text-white/60 mb-0.5">Factory Owner</p>
+              <p className="text-xs font-semibold text-white">Prime Auto Components</p>
+            </button>
+
+            <p className="text-white/50 text-[10px] text-center mb-2 uppercase tracking-wider">10 Component Managers</p>
+            
+            {/* Manager Accounts Grid */}
+            <div className="grid grid-cols-2 gap-1.5">
+              {COMPONENT_DEMOS.map(c => (
+                <button
+                  key={c.code}
+                  onClick={() => fillDemo(c.email)}
+                  className="bg-white/5 hover:bg-white/15 border border-white/10 rounded p-1.5 text-left transition-colors"
+                >
+                  <p className="text-[9px] text-white/40 font-mono">{c.code}</p>
+                  <p className="text-[10px] font-medium text-white">{c.name}</p>
+                </button>
+              ))}
             </div>
-            <details className="mt-2">
-              <summary className="text-[10px] text-white/40 cursor-pointer hover:text-white/60 text-center">10 Component Managers</summary>
-              <div className="grid grid-cols-2 gap-1.5 mt-2">
-                {COMPONENT_DEMOS.map(c => (
-                  <button
-                    key={c.code}
-                    onClick={() => fillDemo(c.email)}
-                    className="bg-white/5 hover:bg-white/15 border border-white/10 rounded p-1.5 text-left transition-colors"
-                  >
-                    <p className="text-[9px] text-white/40 font-mono">{c.code}</p>
-                    <p className="text-[10px] font-medium text-white">{c.name}</p>
-                  </button>
-                ))}
-              </div>
-            </details>
           </div>
         </div>
       </div>

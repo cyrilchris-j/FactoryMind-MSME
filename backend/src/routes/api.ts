@@ -1,5 +1,5 @@
 import { Router, Response } from 'express'
-import { adminDb } from '../lib/firebase-admin'
+import { adminDb, adminAuth } from '../lib/firebase-admin'
 import { requireAuth, AuthRequest } from '../middleware/auth'
 import { chatWithAI, getWeeklySummary, getDailyBriefing } from '../services/ai'
 import { z } from 'zod'
@@ -125,6 +125,42 @@ router.get('/managers', async (req: AuthRequest, res: Response) => {
     .get()
   const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
   res.json({ data: all })
+})
+
+router.post('/managers', async (req: AuthRequest, res: Response) => {
+  if (req.role !== 'OWNER') {
+    res.status(403).json({ error: 'Only owners can add managers' })
+    return
+  }
+
+  const { email, password, name, department, machineNumber } = req.body
+  if (!email || !password || !name) {
+    res.status(400).json({ error: 'Missing required fields' })
+    return
+  }
+
+  try {
+    const userRecord = await adminAuth.createUser({
+      email,
+      password,
+      displayName: name,
+    })
+
+    await adminDb.collection('users').doc(userRecord.uid).set({
+      email,
+      name,
+      role: 'MANAGER',
+      department: department || 'Unassigned',
+      machineNumber: machineNumber ? Number(machineNumber) : null,
+      factoryId: req.factoryId,
+      createdAt: new Date().toISOString()
+    })
+
+    res.status(201).json({ id: userRecord.uid, message: 'Manager created successfully' })
+  } catch (err: any) {
+    console.error('Failed to create manager:', err)
+    res.status(500).json({ error: err.message || 'Failed to create manager' })
+  }
 })
 
 router.get('/production', async (req: AuthRequest, res: Response) => {
