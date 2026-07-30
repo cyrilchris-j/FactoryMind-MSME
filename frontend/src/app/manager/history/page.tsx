@@ -4,17 +4,15 @@ import { ManagerLayout } from '@/components/layout/manager-layout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
-import { ArrowLeft, Search, Filter, FileDown, Loader2 } from 'lucide-react';
+import { ArrowLeft, Search, FileDown, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { apiGet } from '@/lib/api';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/components/auth/auth-provider';
 
 interface HistoryRecord {
   id: string;
   date: string;
-  shift: string;
   product_name: string;
   target_quantity: number;
   actual_quantity: number;
@@ -26,10 +24,9 @@ interface HistoryRecord {
 
 export default function HistoryPage() {
   const { user } = useAuth();
-  const [records, setRecords] = useState<HistoryRecord[]>([]);
+  const [allRecords, setAllRecords] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterShift, setFilterShift] = useState('All');
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -40,7 +37,6 @@ export default function HistoryPage() {
         const formatted = data.map((d: any) => ({
           id: d.id,
           date: d.date,
-          shift: d.shift || '',
           product_name: d.productName || '',
           target_quantity: d.targetQuantity || 0,
           actual_quantity: d.actualQuantity || 0,
@@ -50,16 +46,7 @@ export default function HistoryPage() {
           machine_code: d.machineCode || 'Unknown',
         }));
 
-        let filtered = formatted;
-        if (filterShift !== 'All') {
-          filtered = filtered.filter((r: any) => r.shift === filterShift);
-        }
-        if (search) {
-          filtered = filtered.filter((r: any) =>
-            r.product_name.toLowerCase().includes(search.toLowerCase())
-          );
-        }
-        setRecords(filtered);
+        setAllRecords(formatted);
       } catch (err) {
         console.error('Failed to fetch history', err);
       }
@@ -67,14 +54,20 @@ export default function HistoryPage() {
     };
 
     fetchHistory();
-  }, [search, filterShift]);
+  }, []);
+
+  const records = useMemo(() => {
+    if (!search) return allRecords;
+    return allRecords.filter(r =>
+      r.product_name.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [allRecords, search]);
 
   const handleExport = async () => {
     if (records.length === 0) return;
     const XLSX = await import('xlsx');
     const dataToExport = records.map(r => ({
       Date: r.date,
-      Shift: r.shift,
       Machine: r.machine_code,
       Product: r.product_name,
       'Target Qty': r.target_quantity,
@@ -121,15 +114,6 @@ export default function HistoryPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Filter className="w-4 h-4 text-muted" />
-              <Select value={filterShift} onChange={(e: any) => setFilterShift(e.target.value)} className="w-full sm:w-40">
-                <option value="All">All Shifts</option>
-                <option value="Morning">Morning</option>
-                <option value="Evening">Evening</option>
-                <option value="Night">Night</option>
-              </Select>
-            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -137,7 +121,6 @@ export default function HistoryPage() {
               <thead className="bg-background border-b border-border">
                 <tr>
                   <th className="py-3 px-4 font-medium text-muted">Date</th>
-                  <th className="py-3 px-4 font-medium text-muted">Shift</th>
                   <th className="py-3 px-4 font-medium text-muted">Machine</th>
                   <th className="py-3 px-4 font-medium text-muted">Product</th>
                   <th className="py-3 px-4 font-medium text-muted text-right">Target</th>
@@ -150,14 +133,14 @@ export default function HistoryPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="py-10 text-center text-muted">
+                    <td colSpan={8} className="py-10 text-center text-muted">
                       <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                       Loading history...
                     </td>
                   </tr>
                 ) : records.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-10 text-center text-muted">
+                    <td colSpan={8} className="py-10 text-center text-muted">
                       No records found matching your criteria.
                     </td>
                   </tr>
@@ -167,7 +150,6 @@ export default function HistoryPage() {
                     return (
                       <tr key={r.id} className="border-b border-border hover:bg-background">
                         <td className="py-3 px-4 text-foreground whitespace-nowrap">{r.date}</td>
-                        <td className="py-3 px-4 text-muted">{r.shift}</td>
                         <td className="py-3 px-4 text-foreground font-medium">{r.machine_code}</td>
                         <td className="py-3 px-4 text-foreground">{r.product_name}</td>
                         <td className="py-3 px-4 text-right text-muted">{r.target_quantity.toLocaleString()}</td>
