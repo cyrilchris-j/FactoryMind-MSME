@@ -68,15 +68,15 @@ const BRAKE_PARTS_OPTIONS = [
   { code: 'BRK-WSR-001', name: 'Electronic Brake Wear Sensor' },
 ];
 
-const REQUIRED_COLUMNS = ['date', 'shift', 'machine', 'product_name', 'target_quantity', 'actual_quantity'];
+const REQUIRED_COLUMNS = ['date', 'machine', 'product_name', 'actual_quantity'];
 
 function downloadBrakePartsTemplate() {
-  const headers = ['date', 'shift', 'machine', 'product_name', 'target_quantity', 'actual_quantity', 'rejected_quantity', 'downtime_minutes', 'notes'];
+  const headers = ['date', 'machine', 'product_name', 'actual_quantity', 'rejected_quantity', 'downtime_minutes', 'notes'];
   const today = new Date().toISOString().split('T')[0];
   const examples = [
-    [today, 'Morning', 'CNC-01', 'Brake Pad Set Heavy Duty', '1500', '1450', '12', '15', 'Regular maintenance completed on shift start'],
-    [today, 'Morning', 'LATHE-02', 'Brake Disc Rotor', '800', '780', '8', '20', 'Tool tip change done at 10 AM'],
-    [today, 'Evening', 'PRESS-01', 'Brake Caliper Assembly', '600', '590', '5', '0', 'Normal operation']
+    [today, 'CNC-01', 'Brake Pad Set Heavy Duty', '1450', '12', '15', 'Regular maintenance completed'],
+    [today, 'LATHE-02', 'Brake Disc Rotor', '780', '8', '20', 'Tool tip change done at 10 AM'],
+    [today, 'PRESS-01', 'Brake Caliper Assembly', '590', '5', '0', 'Normal operation']
   ];
   const csvContent = [headers.join(','), ...examples.map(e => e.join(','))].join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -96,25 +96,21 @@ function validateRow(row: Record<string, any>, index: number): ParsedRow {
   });
 
   const date = String(row.date || '');
-  const shift = String(row.shift || '');
   const machine = String(row.machine || '');
   const product_name = String(row.product_name || row.product || '');
-  const target_quantity = Number(row.target_quantity || row.target_qty || 0);
   const actual_quantity = Number(row.actual_quantity || row.actual_qty || 0);
   const rejected_quantity = Number(row.rejected_quantity || row.rejected_qty || 0);
   const downtime_minutes = Number(row.downtime_minutes || row.downtime || 0);
 
   if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) errors.push('Date must be YYYY-MM-DD');
-  if (shift && !['Morning', 'Evening', 'Night'].includes(shift)) errors.push('Shift must be Morning/Evening/Night');
-  if (isNaN(target_quantity) || target_quantity < 0) errors.push('Invalid target_quantity');
   if (isNaN(actual_quantity) || actual_quantity < 0) errors.push('Invalid actual_quantity');
 
   return {
     date,
-    shift,
+    shift: 'General',
     machine,
     product_name,
-    target_quantity: isNaN(target_quantity) ? 0 : target_quantity,
+    target_quantity: 0,
     actual_quantity: isNaN(actual_quantity) ? 0 : actual_quantity,
     rejected_quantity: isNaN(rejected_quantity) ? 0 : rejected_quantity,
     downtime_minutes: isNaN(downtime_minutes) ? 0 : downtime_minutes,
@@ -179,18 +175,24 @@ export default function ManualDataEntryPage() {
       try {
         const res: any = await apiGet('/api/machines?limit=200');
         const data = res.data ?? [];
-        setMachines(data.map((d: any) => ({
+        let fetchedMachines = data.map((d: any) => ({
           id: d.id,
           machine_code: d.machineCode || d.machine_code || '',
           machine_name: d.machineName || d.machine_name || '',
           status: d.status || 'UNKNOWN',
-        })));
+        }));
+        
+        if (user?.machineNumber) {
+          fetchedMachines = fetchedMachines.filter((m: any) => m.machine_code === user.machineNumber);
+        }
+        
+        setMachines(fetchedMachines);
       } catch (err) {
         console.error('Failed to fetch machines', err);
       }
     };
     fetchMachines();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (toast) {
@@ -215,10 +217,10 @@ export default function ManualDataEntryPage() {
 
     const payload = {
       date: formData.get('date'),
-      shift: formData.get('shift'),
+      shift: 'General',
       machineCode: formData.get('machine'),
       productName: finalProductName,
-      targetQuantity: parseInt(formData.get('targetQty') as string),
+      targetQuantity: 0,
       actualQuantity: parseInt(formData.get('actualQty') as string),
       rejectedQuantity: parseInt(formData.get('rejectedQty') as string) || 0,
       downtimeMinutes: parseInt(formData.get('downtime') as string) || 0,
@@ -388,21 +390,12 @@ export default function ManualDataEntryPage() {
                   {errors.date && <p className="text-xs text-red-500">{errors.date}</p>}
                 </div>
 
-                {/* Shift */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="shift">Shift <span className="text-red-500">*</span></Label>
-                  <Select id="shift" name="shift" required defaultValue="Morning" className={errors.shift ? 'border-red-400' : ''}>
-                    <option value="Morning">Morning (6 AM – 2 PM)</option>
-                    <option value="Evening">Evening (2 PM – 10 PM)</option>
-                    <option value="Night">Night (10 PM – 6 AM)</option>
-                  </Select>
-                  {errors.shift && <p className="text-xs text-red-500">{errors.shift}</p>}
                 </div>
 
                 {/* Machine */}
                 <div className="space-y-1.5">
                   <Label htmlFor="machine">Production Machine <span className="text-red-500">*</span></Label>
-                  <Select id="machine" name="machine" required defaultValue="" className={errors.machineCode ? 'border-red-400' : ''}>
+                  <Select id="machine" name="machine" required value={user?.machineNumber || undefined} defaultValue={user?.machineNumber ? undefined : ""} className={errors.machineCode ? 'border-red-400' : ''}>
                     <option value="" disabled>Select machine</option>
                     {machines.length === 0 ? (
                       <option disabled>Loading machines...</option>
@@ -449,20 +442,7 @@ export default function ManualDataEntryPage() {
                   </div>
                 )}
 
-                {/* Target Qty */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="targetQty">Target Quantity (Units) <span className="text-red-500">*</span></Label>
-                  <Input
-                    type="number"
-                    id="targetQty"
-                    name="targetQty"
-                    min="1"
-                    placeholder="e.g. 1500"
-                    required
-                    className={errors.targetQuantity ? 'border-red-400' : ''}
-                  />
-                  {errors.targetQuantity && <p className="text-xs text-red-500">{errors.targetQuantity}</p>}
-                </div>
+
 
                 {/* Actual Produced Qty */}
                 <div className="space-y-1.5">
@@ -633,10 +613,8 @@ export default function ManualDataEntryPage() {
                               <tr>
                                 <th className="text-left py-2 px-3 text-muted">Row</th>
                                 <th className="text-left py-2 px-3 text-muted">Date</th>
-                                <th className="text-left py-2 px-3 text-muted">Shift</th>
                                 <th className="text-left py-2 px-3 text-muted">Machine</th>
                                 <th className="text-left py-2 px-3 text-muted">Brake Part Name</th>
-                                <th className="text-right py-2 px-3 text-muted">Target</th>
                                 <th className="text-right py-2 px-3 text-muted">Actual</th>
                                 <th className="text-left py-2 px-3 text-muted">Status</th>
                               </tr>
@@ -646,10 +624,8 @@ export default function ManualDataEntryPage() {
                                 <tr key={r._row} className={`border-b border-border last:border-0 ${!r._valid ? 'bg-red-50/70' : 'hover:bg-background'}`}>
                                   <td className="py-2 px-3 text-muted font-mono">{r._row}</td>
                                   <td className="py-2 px-3 font-medium">{r.date}</td>
-                                  <td className="py-2 px-3 text-muted">{r.shift}</td>
                                   <td className="py-2 px-3 font-mono">{r.machine}</td>
                                   <td className="py-2 px-3 font-medium truncate max-w-37.5">{r.product_name}</td>
-                                  <td className="py-2 px-3 text-right text-muted">{r.target_quantity}</td>
                                   <td className="py-2 px-3 text-right font-semibold">{r.actual_quantity}</td>
                                   <td className="py-2 px-3">
                                     {r._valid ? (

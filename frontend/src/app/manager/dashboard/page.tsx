@@ -14,7 +14,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/components/auth/auth-provider';
 import { apiGet, apiPost } from '@/lib/api';
 
-const REPORT_TEMPLATE_COLUMNS = ['date', 'shift', 'parts_produced', 'defects', 'energy_kwh', 'current_amps', 'notes'];
+const REPORT_TEMPLATE_COLUMNS = ['date', 'parts_produced', 'defects', 'energy_kwh', 'current_amps', 'notes'];
 
 function downloadReportTemplate() {
   const headers = REPORT_TEMPLATE_COLUMNS.join(',');
@@ -101,7 +101,7 @@ export default function ManagerDashboardPage() {
     try {
       await apiPost('/api/machine-production', {
         machineNumber,
-        shift,
+        shift: 'General',
         partsProduced: parseInt(partsProduced) || 0,
         defects: parseInt(defects) || 0,
         energyKwh: parseFloat(energyKwh) || 0,
@@ -146,7 +146,6 @@ export default function ManagerDashboardPage() {
       const raw: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
       const rows = raw.map((r: any, i: number) => ({
         date: r.date || '',
-        shift: r.shift || '',
         parts_produced: Number(r.parts_produced || r.partsProduced || 0),
         defects: Number(r.defects || 0),
         energy_kwh: Number(r.energy_kwh || r.energyKwh || 0),
@@ -274,16 +273,6 @@ export default function ManagerDashboardPage() {
                 <TrendingUp className="w-5 h-5 text-primary" />
                 <h2 className="text-base font-bold text-foreground">Record Today's Data</h2>
               </div>
-              <div className="mb-4">
-                <Label>Shift</Label>
-                <select value={shift} onChange={(e) => setShift(e.target.value)}
-                  className="w-full mt-1 rounded-md border border-border bg-transparent px-3 py-2 text-sm">
-                  <option value="General">General</option>
-                  <option value="Morning">Morning</option>
-                  <option value="Afternoon">Afternoon</option>
-                  <option value="Night">Night</option>
-                </select>
-              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Parts Produced</Label>
@@ -349,7 +338,6 @@ export default function ManagerDashboardPage() {
                       <thead className="bg-background sticky top-0">
                         <tr>
                           <th className="text-left p-2">Date</th>
-                          <th className="text-left p-2">Shift</th>
                           <th className="text-right p-2">Parts</th>
                           <th className="text-right p-2">Defects</th>
                           <th className="text-right p-2">kWh</th>
@@ -360,7 +348,6 @@ export default function ManagerDashboardPage() {
                         {uploadRows.map((r, i) => (
                           <tr key={i} className="border-t">
                             <td className="p-2">{r.date}</td>
-                            <td className="p-2">{r.shift}</td>
                             <td className="p-2 text-right">{r.parts_produced}</td>
                             <td className="p-2 text-right">{r.defects}</td>
                             <td className="p-2 text-right">{r.energy_kwh}</td>
