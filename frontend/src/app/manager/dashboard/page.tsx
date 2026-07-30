@@ -224,7 +224,7 @@ export default function ManagerDashboardPage() {
         )}
 
         {/* Welcome Banner */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white">
+        <div className="bg-linear-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white">
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-xl font-bold mb-1">
@@ -404,7 +404,7 @@ export default function ManagerDashboardPage() {
           {/* Right Sidebar: Template + Suggestions */}
           <div className="space-y-6">
             {/* Template Download */}
-            <Card className="p-5 bg-gradient-to-br from-green-50/50 to-emerald-50/30 border-green-100/50">
+            <Card className="p-5 bg-lin to-emerald-50/30 border-green-100/50">
               <div className="flex items-center gap-2 mb-3">
                 <Download className="w-4 h-4 text-green-600" />
                 <h3 className="text-sm font-bold text-foreground">Excel Template</h3>
