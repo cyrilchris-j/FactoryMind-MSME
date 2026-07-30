@@ -38,7 +38,7 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     req.email = decoded.email || profile.email
     req.name = profile.name as string
     req.role = profile.role as string
-    req.factoryId = profile.factoryId as string
+    req.factoryId = (profile.factoryId as string) || 'FAC1'
     req.departmentId = profile.departmentId as string
 
     next()
