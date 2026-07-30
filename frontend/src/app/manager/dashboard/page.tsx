@@ -38,7 +38,7 @@ export default function ManagerDashboardPage() {
   const [machineData, setMachineData] = useState<any>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const [shift, setShift] = useState('General');
+  
   const [partsProduced, setPartsProduced] = useState('');
   const [defects, setDefects] = useState('');
   const [energyKwh, setEnergyKwh] = useState('');
