@@ -13,7 +13,13 @@ export async function getAuthToken(): Promise<string> {
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = await getAuthToken()
-  const res = await fetch(`${API_BASE}${path}`, {
+
+  // Manager routes are handled by Next.js API routes (no backend needed)
+  // All other routes go to the Express backend
+  const isNextRoute = path.startsWith('/api/managers')
+  const base = isNextRoute ? '' : API_BASE
+
+  const res = await fetch(`${base}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -27,6 +33,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   }
   return res.json()
 }
+
 
 export function apiGet<T>(path: string) {
   return apiFetch<T>(path)
