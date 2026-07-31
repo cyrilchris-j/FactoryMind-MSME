@@ -21,14 +21,14 @@ async function verifyOwner(req: NextRequest) {
 // PATCH /api/managers/[id]/password — change manager password
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await verifyOwner(req)
   if ('error' in auth) {
     return NextResponse.json({ error: auth.error }, { status: auth.status })
   }
 
-  const managerId = params.id
+  const { id: managerId } = await params
   try {
     const body = await req.json()
     const { password } = body

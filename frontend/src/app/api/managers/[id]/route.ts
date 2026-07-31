@@ -21,14 +21,14 @@ async function verifyOwner(req: NextRequest) {
 // DELETE /api/managers/[id] — remove a manager
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await verifyOwner(req)
   if ('error' in auth) {
     return NextResponse.json({ error: auth.error }, { status: auth.status })
   }
 
-  const managerId = params.id
+  const { id: managerId } = await params
   try {
     const managerDoc = await adminDb.collection('users').doc(managerId).get()
     if (!managerDoc.exists) {
