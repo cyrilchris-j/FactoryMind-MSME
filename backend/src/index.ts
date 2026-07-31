@@ -14,22 +14,23 @@ const PORT = process.env.PORT || 4000;
 app.use(helmet());
 
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:3000',
+  process.env.FRONTEND_URL,
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
-  // Add your Vercel frontend URL here after deploying frontend
-  ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
-];
+].filter(Boolean) as string[];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (e.g. curl, Postman, same-server calls) or matched origins
-    if (!origin || allowedOrigins.some(o => origin.startsWith(o) || origin === o)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS: origin ${origin} not allowed`));
+    // Allow no-origin requests (curl, Postman, server-to-server)
+    if (!origin) return callback(null, true);
+    // Allow any vercel.app deployment
+    if (origin.endsWith('.vercel.app')) return callback(null, true);
+    // Allow explicitly configured origins
+    if (allowedOrigins.some(o => origin === o || origin.startsWith(o))) {
+      return callback(null, true);
     }
+    callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
 }));
