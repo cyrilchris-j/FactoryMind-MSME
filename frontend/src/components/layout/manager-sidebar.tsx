@@ -95,7 +95,6 @@ const allNavigation = {
 
 const defaultNavigation = [
   { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
-  { name: 'Data Entry', href: '/manager/data-entry', icon: Plus },
   { name: 'Submission History', href: '/manager/history', icon: History },
   { name: 'Message Owner', href: '/manager/message-owner', icon: MessageSquare },
 ]
