@@ -14,9 +14,8 @@ export async function getAuthToken(): Promise<string> {
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = await getAuthToken()
 
-  // Manager routes are handled by Next.js API routes (no backend needed)
-  // All other routes go to the Express backend
-  const isNextRoute = path === '/api/managers' || path.startsWith('/api/managers/')
+  // Send all API calls to the Express backend (Render) where Firebase Admin credentials are set up
+  const isNextRoute = false
   const base = isNextRoute ? '' : API_BASE
 
   const res = await fetch(`${base}${path}`, {
