@@ -16,12 +16,14 @@ import {
   UserCircle,
   LogOut,
   MessageSquare,
+  Cpu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/auth-provider';
 
 const navigation = [
   { name: 'Dashboard', href: '/owner/dashboard', icon: LayoutDashboard },
+  { name: 'Machine Overview', href: '/owner/overview', icon: Cpu },
   { name: 'Managers', href: '/owner/managers', icon: UserCog },
   { name: 'Energy', href: '/owner/energy', icon: Zap },
   { name: 'AI Factory Copilot', href: '/owner/ai-copilot', icon: Sparkles },
