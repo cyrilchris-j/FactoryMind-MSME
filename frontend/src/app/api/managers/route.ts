@@ -15,7 +15,8 @@ async function verifyOwner(req: NextRequest) {
     const profile = userDoc.data()!
     if (profile.role !== 'OWNER') return { error: 'Only owners can manage managers', status: 403 }
     return { uid: decoded.uid, factoryId: profile.factoryId as string }
-  } catch {
+  } catch (err: any) {
+    console.error('verifyOwner error:', err)
     return { error: 'Invalid token', status: 401 }
   }
 }
@@ -35,7 +36,8 @@ export async function GET(req: NextRequest) {
     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
     return NextResponse.json({ data })
   } catch (err: any) {
-    return NextResponse.json({ error: 'Failed to fetch managers' }, { status: 500 })
+    console.error('GET /api/managers error:', err)
+    return NextResponse.json({ error: err.message || 'Failed to fetch managers' }, { status: 500 })
   }
 }
 
