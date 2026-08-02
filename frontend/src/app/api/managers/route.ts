@@ -14,6 +14,7 @@ async function verifyOwner(req: NextRequest) {
     if (!userDoc.exists) return { error: 'User not found', status: 401 }
     const profile = userDoc.data()!
     if (profile.role !== 'OWNER') return { error: 'Only owners can manage managers', status: 403 }
+    if (!profile.factoryId) return { error: 'Owner account has no factory assigned', status: 400 }
     return { uid: decoded.uid, factoryId: profile.factoryId as string }
   } catch (err: any) {
     console.error('verifyOwner error:', err)
