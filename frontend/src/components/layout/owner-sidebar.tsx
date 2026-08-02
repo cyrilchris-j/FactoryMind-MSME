@@ -6,8 +6,6 @@ import {
   LayoutDashboard,
   Factory as FactoryIcon,
   Package,
-  Wrench,
-  Users,
   UserCog,
   Zap,
   Sparkles,
@@ -24,8 +22,6 @@ import { useAuth } from '@/components/auth/auth-provider';
 
 const navigation = [
   { name: 'Dashboard', href: '/owner/dashboard', icon: LayoutDashboard },
-  { name: 'Maintenance', href: '/owner/maintenance', icon: Wrench },
-  { name: 'Workforce', href: '/owner/workers', icon: Users },
   { name: 'Managers', href: '/owner/managers', icon: UserCog },
   { name: 'Energy', href: '/owner/energy', icon: Zap },
   { name: 'AI Factory Copilot', href: '/owner/ai-copilot', icon: Sparkles },
