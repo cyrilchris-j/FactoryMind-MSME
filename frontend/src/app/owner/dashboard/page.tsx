@@ -116,7 +116,7 @@ export default function OwnerDashboard() {
     }
     setCreatingManager(true);
     try {
-      const res: any = await apiPost('/api/auth/create-manager', {
+      const res: any = await apiPost('/api/managers', {
         email: newManager.email,
         password: newManager.password,
         name: newManager.name,
