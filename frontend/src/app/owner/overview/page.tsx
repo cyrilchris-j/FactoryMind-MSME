@@ -120,7 +120,7 @@ export default function MachineOverviewPage() {
                     <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Machine</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Manager Name</th>
                     <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Total Parts</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Nalla Product</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Good Products</th>
                     <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Defect</th>
                     <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Total Workers</th>
                     <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Present</th>
