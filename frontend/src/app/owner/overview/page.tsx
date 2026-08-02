@@ -119,19 +119,19 @@ export default function MachineOverviewPage() {
                   <tr className="border-b border-border bg-slate-50/50">
                     <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Machine</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Manager Name</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Total Member</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Total Parts</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Nalla Product</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Defect</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Total Workers</th>
                     <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Present</th>
                     <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Absent</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Total Production</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Defect</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">Defect %</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">kWh</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {machinesData.map((m: any) => {
                     const totalMembers = (m.workersPresent || 0) + (m.workersAbsent || 0);
-                    const defectPct = m.partsProduced > 0 ? ((m.defects / m.partsProduced) * 100).toFixed(1) : '0.0';
-                    const hasHighDefects = parseFloat(defectPct) > 5;
+                    const goodProduct = Math.max(0, (m.partsProduced || 0) - (m.defects || 0));
 
                     return (
                       <tr key={m.machineNumber} className="hover:bg-slate-50/50 transition-colors">
@@ -148,26 +148,15 @@ export default function MachineOverviewPage() {
                             <span className="font-medium">{m.managerName}</span>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 text-right font-numbers text-foreground">{totalMembers}</td>
-                        <td className="py-3.5 px-4 text-right font-numbers text-green-600 font-medium">+{m.workersPresent || 0}</td>
-                        <td className="py-3.5 px-4 text-right font-numbers text-red-500">{m.workersAbsent || 0}</td>
                         <td className="py-3.5 px-4 text-right font-numbers text-foreground font-semibold">{m.partsProduced || 0}</td>
+                        <td className="py-3.5 px-4 text-right font-numbers text-green-600 font-semibold">{goodProduct}</td>
                         <td className={`py-3.5 px-4 text-right font-numbers ${m.defects > 0 ? 'text-red-500 font-medium' : 'text-muted'}`}>
                           {m.defects || 0}
                         </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <Badge
-                            className={`text-xs px-2 py-0.5 rounded-full ${
-                              m.partsProduced === 0
-                                ? 'bg-slate-100 text-slate-500'
-                                : hasHighDefects
-                                ? 'bg-red-50 text-red-700 border border-red-200'
-                                : 'bg-green-50 text-green-700 border border-green-200'
-                            }`}
-                          >
-                            {defectPct}%
-                          </Badge>
-                        </td>
+                        <td className="py-3.5 px-4 text-right font-numbers text-foreground">{totalMembers}</td>
+                        <td className="py-3.5 px-4 text-right font-numbers text-green-600 font-medium">+{m.workersPresent || 0}</td>
+                        <td className="py-3.5 px-4 text-right font-numbers text-red-500">{m.workersAbsent || 0}</td>
+                        <td className="py-3.5 px-4 text-right font-numbers text-amber-600 font-medium">{m.energyKwh || 0}</td>
                       </tr>
                     );
                   })}
