@@ -16,7 +16,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
   // Manager routes are handled by Next.js API routes (no backend needed)
   // All other routes go to the Express backend
-  const isNextRoute = path.startsWith('/api/managers')
+  const isNextRoute = path === '/api/managers' || path.startsWith('/api/managers/')
   const base = isNextRoute ? '' : API_BASE
 
   const res = await fetch(`${base}${path}`, {
