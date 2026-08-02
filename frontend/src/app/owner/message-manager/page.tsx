@@ -13,6 +13,7 @@ interface Manager {
   name: string;
   department?: string;
   componentCode?: string;
+  machineNumber?: number | null;
 }
 
 export default function MessageManagerPage() {
@@ -91,7 +92,7 @@ export default function MessageManagerPage() {
                   <option value="">-- Choose a Manager --</option>
                   {managers.map(m => (
                     <option key={m.id} value={m.id}>
-                      {m.name} {m.department ? `(${m.department})` : ''} {m.componentCode ? `[${m.componentCode}]` : ''}
+                      {m.name} {m.machineNumber ? `(Machine ${m.machineNumber})` : '(Unassigned)'}
                     </option>
                   ))}
                 </select>
