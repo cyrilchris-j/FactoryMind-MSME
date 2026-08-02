@@ -287,6 +287,23 @@ export default function ManagerDashboardPage() {
                   <Input type="number" min="0" placeholder="e.g. 600" value={tomorrowTarget} onChange={(e) => setTomorrowTarget(e.target.value)} />
                 </div>
               </div>
+
+              {/* Real-time calculated feedback */}
+              <div className="mt-4 p-3.5 bg-slate-50 border border-slate-200/60 rounded-xl grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-xs text-muted-foreground block font-medium">Good Products (Calculated)</span>
+                  <span className="text-base font-bold text-green-600">
+                    {Math.max(0, (parseInt(partsProduced) || 0) - (parseInt(defects) || 0))} units
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block font-medium">Total Workers (Calculated)</span>
+                  <span className="text-base font-bold text-foreground">
+                    {(parseInt(workersPresent) || 0) + (parseInt(workersAbsent) || 0)} members
+                  </span>
+                </div>
+              </div>
+
               <Button onClick={handleSaveProduction} disabled={saving} className="w-full mt-4 bg-primary hover:bg-primary/90 text-white">
                 {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : <><Save className="w-4 h-4 mr-2" /> Save All Data</>}
               </Button>
