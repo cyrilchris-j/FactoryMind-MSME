@@ -54,14 +54,6 @@ export default function ManagerDashboardPage() {
   const [managerName, setManagerName] = useState(user?.name || '');
 
   const machineNumber = user?.machineNumber || 0;
-  const [selectedMachine, setSelectedMachine] = useState<number>(machineNumber);
-
-  // Sync selectedMachine and managerName when user context loads
-  useEffect(() => {
-    if (machineNumber) {
-      setSelectedMachine(machineNumber);
-    }
-  }, [machineNumber]);
 
   useEffect(() => {
     if (user?.name) {
@@ -85,11 +77,11 @@ export default function ManagerDashboardPage() {
   };
 
   const fetchMachineData = useCallback(async () => {
-    if (!selectedMachine) return;
+    if (!machineNumber) return;
     try {
       const res: any = await apiGet('/api/machine-production/today');
       const records = res.data ?? [];
-      const myRecord = records.find((r: any) => r.machineNumber === selectedMachine);
+      const myRecord = records.find((r: any) => r.machineNumber === machineNumber);
       setMachineData(myRecord || null);
       if (myRecord) {
         setPartsProduced(String(myRecord.partsProduced || ''));
@@ -123,7 +115,7 @@ export default function ManagerDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedMachine]);
+  }, [machineNumber]);
 
   useEffect(() => {
     fetchMachineData();
@@ -140,7 +132,7 @@ export default function ManagerDashboardPage() {
     setSaving(true);
     try {
       await apiPost('/api/machine-production', {
-        machineNumber: selectedMachine,
+        machineNumber,
         shift: 'General',
         partsProduced: parseInt(partsProduced) || 0,
         defects: parseInt(defects) || 0,
@@ -206,7 +198,7 @@ export default function ManagerDashboardPage() {
     setSuggestionSaving(true);
     try {
       await apiPost('/api/machine-suggestions', {
-        machineNumber: selectedMachine,
+        machineNumber,
         message: suggestion,
       });
       setToast({ type: 'success', message: 'Suggestion submitted!' });
@@ -253,7 +245,7 @@ export default function ManagerDashboardPage() {
     setUploadStep('uploading');
     try {
       const result = await apiPost('/api/production-reports', {
-        machineNumber: selectedMachine,
+        machineNumber,
         records: uploadRows,
       });
       setUploadResult(result);
@@ -318,7 +310,7 @@ export default function ManagerDashboardPage() {
               </h1>
               <div className="flex items-center gap-2 mt-2">
                 <Cpu className="w-5 h-5 text-blue-200" />
-                <span className="text-lg font-bold">Machine {selectedMachine}</span>
+                <span className="text-lg font-bold">Machine {machineNumber}</span>
               </div>
               <p className="text-white/50 text-xs mt-1">
                 {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -344,17 +336,7 @@ export default function ManagerDashboardPage() {
                 {/* Row 1 */}
                 <div className="space-y-1.5">
                   <Label>Machine</Label>
-                  <select
-                    value={selectedMachine}
-                    onChange={(e) => setSelectedMachine(Number(e.target.value))}
-                    className="flex h-10 w-full rounded-md border border-border bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {Array.from({ length: 10 }, (_, i) => (
-                      <option key={i + 1} value={i + 1}>
-                        Machine {i + 1}
-                      </option>
-                    ))}
-                  </select>
+                  <Input type="text" value={`Machine ${machineNumber}`} disabled className="bg-slate-50 cursor-not-allowed text-muted" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Manager Name</Label>

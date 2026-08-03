@@ -142,6 +142,7 @@ export function ManagerSidebar({ collapsed = false, onToggle, isMobile = false, 
     : (allNavigation[dept as keyof typeof allNavigation] || defaultNavigation);
 
   const roleLabel = isComponentManager ? `${componentName} Manager` : `${dept} Manager`;
+  const machineLabel = user?.machineNumber ? `Machine ${user.machineNumber}` : 'No Machine Assigned';
 
   return (
     <div
@@ -221,7 +222,7 @@ export function ManagerSidebar({ collapsed = false, onToggle, isMobile = false, 
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{user?.name || 'Manager'}</p>
-              <p className="text-xs text-muted truncate">{roleLabel}</p>
+              <p className="text-xs text-muted truncate">{machineLabel}</p>
             </div>
             <button
               onClick={handleLogout}
