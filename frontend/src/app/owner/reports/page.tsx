@@ -204,7 +204,7 @@ export default function ReportsPage() {
                 {filterMode === 'date' && (
                   <motion.div
                     layoutId="activeFilterTab"
-                    className="absolute inset-0 bg-primary rounded-md -z-10"
+                    className="absolute inset-0 bg-primary rounded-md z-0"
                     transition={{ type: "spring", stiffness: 350, damping: 25 }}
                   />
                 )}
@@ -223,7 +223,7 @@ export default function ReportsPage() {
                 {filterMode === 'month' && (
                   <motion.div
                     layoutId="activeFilterTab"
-                    className="absolute inset-0 bg-primary rounded-md -z-10"
+                    className="absolute inset-0 bg-primary rounded-md z-0"
                     transition={{ type: "spring", stiffness: 350, damping: 25 }}
                   />
                 )}
@@ -242,7 +242,7 @@ export default function ReportsPage() {
                 {filterMode === 'year' && (
                   <motion.div
                     layoutId="activeFilterTab"
-                    className="absolute inset-0 bg-primary rounded-md -z-10"
+                    className="absolute inset-0 bg-primary rounded-md z-0"
                     transition={{ type: "spring", stiffness: 350, damping: 25 }}
                   />
                 )}
