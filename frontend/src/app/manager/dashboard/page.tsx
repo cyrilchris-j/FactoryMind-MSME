@@ -166,8 +166,8 @@ export default function ManagerDashboardPage() {
   const handleTotalPartsChange = (val: string) => {
     setPartsProduced(val);
     const pts = parseInt(val) || 0;
-    const df = parseInt(defects) || 0;
-    setGoodProducts(String(Math.max(0, pts - df)));
+    const gp = parseInt(goodProducts) || 0;
+    setDefects(String(Math.max(0, pts - gp)));
   };
 
   const handleDefectsChange = (val: string) => {
@@ -179,8 +179,8 @@ export default function ManagerDashboardPage() {
 
   const handleGoodProductsChange = (val: string) => {
     setGoodProducts(val);
-    const gp = parseInt(val) || 0;
     const pts = parseInt(partsProduced) || 0;
+    const gp = parseInt(val) || 0;
     setDefects(String(Math.max(0, pts - gp)));
   };
 
@@ -193,16 +193,16 @@ export default function ManagerDashboardPage() {
 
   const handlePresentChange = (val: string) => {
     setWorkersPresent(val);
+    const tw = parseInt(totalWorkers) || 0;
     const pr = parseInt(val) || 0;
-    const ab = parseInt(workersAbsent) || 0;
-    setTotalWorkers(String(pr + ab));
+    setWorkersAbsent(String(Math.max(0, tw - pr)));
   };
 
   const handleAbsentChange = (val: string) => {
     setWorkersAbsent(val);
-    const pr = parseInt(workersPresent) || 0;
+    const tw = parseInt(totalWorkers) || 0;
     const ab = parseInt(val) || 0;
-    setTotalWorkers(String(pr + ab));
+    setWorkersPresent(String(Math.max(0, tw - ab)));
   };
 
   const handleSubmitSuggestion = async () => {
