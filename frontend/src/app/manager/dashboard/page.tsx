@@ -14,12 +14,24 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/components/auth/auth-provider';
 import { apiGet, apiPost } from '@/lib/api';
 
-const REPORT_TEMPLATE_COLUMNS = ['date', 'parts_produced', 'defects', 'energy_kwh', 'workers_present', 'workers_absent', 'notes'];
+const REPORT_TEMPLATE_COLUMNS = [
+  'date',
+  'machine_number',
+  'manager_name',
+  'energy_kwh',
+  'total_parts',
+  'good_products',
+  'defects',
+  'total_workers',
+  'workers_present',
+  'workers_absent',
+  'notes'
+];
 
 function downloadReportTemplate() {
   const headers = REPORT_TEMPLATE_COLUMNS.join(',');
   const today = new Date().toISOString().split('T')[0];
-  const example = [today, '500', '5', '120.5', '5', '1', 'Routine production'].join(',');
+  const example = [today, '2', 'Arul', '120.5', '500', '495', '5', '6', '5', '1', 'Routine production'].join(',');
   const csv = [headers, example].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
@@ -220,18 +232,36 @@ export default function ManagerDashboardPage() {
       const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const raw: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      const rows = raw.map((r: any, i: number) => ({
-        date: r.date || '',
-        parts_produced: Number(r.parts_produced || r.partsProduced || 0),
-        defects: Number(r.defects || 0),
-        energy_kwh: Number(r.energy_kwh || r.energyKwh || 0),
-        current_amps: 0,
-        workers_present: Number(r.workers_present || r.workersPresent || 0),
-        workers_absent: Number(r.workers_absent || r.workersAbsent || 0),
-        tomorrow_target: 0,
-        notes: r.notes || '',
-        _row: i + 2,
-      }));
+      const rows = raw.map((r: any, i: number) => {
+        const dateVal = r.date || '';
+        const machVal = Number(r.machine_number || r.machine || machineNumber);
+        const nameVal = r.manager_name || r.managerName || managerName;
+        const kWhVal = Number(r.energy_kwh || r.energyKwh || r.kWh || 0);
+        const partsVal = Number(r.total_parts || r.totalParts || r.parts_produced || r.partsProduced || 0);
+        const defectVal = Number(r.defects || r.defect || 0);
+        const goodVal = Number(r.good_products || r.goodProducts || 0) || Math.max(0, partsVal - defectVal);
+        const presentVal = Number(r.workers_present || r.workersPresent || r.present || 0);
+        const absentVal = Number(r.workers_absent || r.workersAbsent || r.absent || 0);
+        const totalW = Number(r.total_workers || r.totalWorkers || 0) || (presentVal + absentVal);
+        const noteVal = r.notes || '';
+
+        return {
+          date: dateVal,
+          machineNumber: machVal,
+          managerName: nameVal,
+          parts_produced: partsVal,
+          defects: defectVal,
+          energy_kwh: kWhVal,
+          workers_present: presentVal,
+          workers_absent: absentVal,
+          goodProducts: goodVal,
+          totalWorkers: totalW,
+          notes: noteVal,
+          current_amps: 0,
+          tomorrow_target: 0,
+          _row: i + 2,
+        };
+      });
       setUploadRows(rows);
       setUploadStep('preview');
     } catch (err: any) {
@@ -415,22 +445,30 @@ export default function ManagerDashboardPage() {
                       <thead className="bg-background sticky top-0">
                         <tr>
                           <th className="text-left p-2">Date</th>
+                          <th className="text-center p-2">Machine</th>
+                          <th className="text-left p-2">Manager</th>
                           <th className="text-right p-2">Parts</th>
+                          <th className="text-right p-2">Good Products</th>
                           <th className="text-right p-2">Defects</th>
-                          <th className="text-right p-2">kWh</th>
+                          <th className="text-right p-2">Total Workers</th>
                           <th className="text-right p-2">Present</th>
                           <th className="text-right p-2">Absent</th>
+                          <th className="text-right p-2">kWh</th>
                         </tr>
                       </thead>
                       <tbody>
                         {uploadRows.map((r, i) => (
                           <tr key={i} className="border-t">
                             <td className="p-2">{r.date}</td>
-                            <td className="p-2 text-right">{r.parts_produced}</td>
-                            <td className="p-2 text-right">{r.defects}</td>
-                            <td className="p-2 text-right">{r.energy_kwh}</td>
-                            <td className="p-2 text-right">{r.workers_present}</td>
-                            <td className="p-2 text-right">{r.workers_absent}</td>
+                            <td className="p-2 text-center font-numbers">Machine {r.machineNumber}</td>
+                            <td className="p-2 text-left">{r.managerName}</td>
+                            <td className="p-2 text-right font-numbers">{r.parts_produced}</td>
+                            <td className="p-2 text-right font-numbers">{r.goodProducts}</td>
+                            <td className="p-2 text-right font-numbers">{r.defects}</td>
+                            <td className="p-2 text-right font-numbers">{r.totalWorkers}</td>
+                            <td className="p-2 text-right font-numbers">{r.workers_present}</td>
+                            <td className="p-2 text-right font-numbers">{r.workers_absent}</td>
+                            <td className="p-2 text-right font-numbers">{r.energy_kwh}</td>
                           </tr>
                         ))}
                       </tbody>
