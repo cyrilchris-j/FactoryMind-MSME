@@ -35,9 +35,17 @@ export default function HistoryPage() {
     const fetchHistory = async () => {
       setLoading(true);
       try {
-        const res: any = await apiGet('/api/machine-production?limit=200');
-        const data = res.data ?? [];
-        const formatted = data.map((d: any) => {
+        const res: any = await apiGet('/api/machine-production/range?startDate=2000-01-01&endDate=2100-12-31');
+        const allData = res.data ?? [];
+        
+        // Filter by current manager's assigned machine number
+        const managerMachineNumber = user?.machineNumber || 0;
+        const filtered = allData.filter((d: any) => d.machineNumber === managerMachineNumber);
+        
+        // Sort by date descending (newest first)
+        filtered.sort((a: any, b: any) => b.date.localeCompare(a.date));
+
+        const formatted = filtered.map((d: any) => {
           const partsVal = d.partsProduced || 0;
           const defectVal = d.defects || 0;
           const presentVal = d.workersPresent || 0;
@@ -66,7 +74,7 @@ export default function HistoryPage() {
     };
 
     fetchHistory();
-  }, []);
+  }, [user?.machineNumber]);
 
   const records = useMemo(() => {
     if (!search) return allRecords;
