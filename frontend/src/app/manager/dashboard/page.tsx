@@ -48,6 +48,27 @@ export default function ManagerDashboardPage() {
   const [tomorrowTarget, setTomorrowTarget] = useState('');
   const [suggestion, setSuggestion] = useState('');
 
+  // Additional states for the redesigned form
+  const [goodProducts, setGoodProducts] = useState('');
+  const [totalWorkers, setTotalWorkers] = useState('');
+  const [managerName, setManagerName] = useState(user?.name || '');
+
+  const machineNumber = user?.machineNumber || 0;
+  const [selectedMachine, setSelectedMachine] = useState<number>(machineNumber);
+
+  // Sync selectedMachine and managerName when user context loads
+  useEffect(() => {
+    if (machineNumber) {
+      setSelectedMachine(machineNumber);
+    }
+  }, [machineNumber]);
+
+  useEffect(() => {
+    if (user?.name) {
+      setManagerName(user.name);
+    }
+  }, [user?.name]);
+
   // Excel upload state
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadStep, setUploadStep] = useState<'idle' | 'parsing' | 'preview' | 'uploading' | 'done'>('idle');
@@ -55,8 +76,6 @@ export default function ManagerDashboardPage() {
   const [uploadFileName, setUploadFileName] = useState('');
   const [uploadResult, setUploadResult] = useState<any>(null);
   const [uploadError, setUploadError] = useState('');
-
-  const machineNumber = user?.machineNumber || 0;
 
   const getGreeting = () => {
     const h = new Date().getHours();
@@ -66,10 +85,11 @@ export default function ManagerDashboardPage() {
   };
 
   const fetchMachineData = useCallback(async () => {
+    if (!selectedMachine) return;
     try {
       const res: any = await apiGet('/api/machine-production/today');
       const records = res.data ?? [];
-      const myRecord = records.find((r: any) => r.machineNumber === machineNumber);
+      const myRecord = records.find((r: any) => r.machineNumber === selectedMachine);
       setMachineData(myRecord || null);
       if (myRecord) {
         setPartsProduced(String(myRecord.partsProduced || ''));
@@ -79,13 +99,31 @@ export default function ManagerDashboardPage() {
         setWorkersPresent(String(myRecord.workersPresent || ''));
         setWorkersAbsent(String(myRecord.workersAbsent || ''));
         setTomorrowTarget(String(myRecord.tomorrowTarget || ''));
+
+        const pt = myRecord.partsProduced || 0;
+        const df = myRecord.defects || 0;
+        setGoodProducts(String(Math.max(0, pt - df)));
+
+        const pr = myRecord.workersPresent || 0;
+        const ab = myRecord.workersAbsent || 0;
+        setTotalWorkers(String(pr + ab));
+      } else {
+        setPartsProduced('');
+        setDefects('');
+        setEnergyKwh('');
+        setCurrentAmps('');
+        setWorkersPresent('');
+        setWorkersAbsent('');
+        setTomorrowTarget('');
+        setGoodProducts('');
+        setTotalWorkers('');
       }
     } catch (err) {
       console.error('Failed to fetch machine data', err);
     } finally {
       setLoading(false);
     }
-  }, [machineNumber]);
+  }, [selectedMachine]);
 
   useEffect(() => {
     fetchMachineData();
@@ -102,7 +140,7 @@ export default function ManagerDashboardPage() {
     setSaving(true);
     try {
       await apiPost('/api/machine-production', {
-        machineNumber,
+        machineNumber: selectedMachine,
         shift: 'General',
         partsProduced: parseInt(partsProduced) || 0,
         defects: parseInt(defects) || 0,
@@ -120,12 +158,55 @@ export default function ManagerDashboardPage() {
     setSaving(false);
   };
 
+  // Real-time synchronization handlers
+  const handleTotalPartsChange = (val: string) => {
+    setPartsProduced(val);
+    const pts = parseInt(val) || 0;
+    const df = parseInt(defects) || 0;
+    setGoodProducts(String(Math.max(0, pts - df)));
+  };
+
+  const handleDefectsChange = (val: string) => {
+    setDefects(val);
+    const pts = parseInt(partsProduced) || 0;
+    const df = parseInt(val) || 0;
+    setGoodProducts(String(Math.max(0, pts - df)));
+  };
+
+  const handleGoodProductsChange = (val: string) => {
+    setGoodProducts(val);
+    const gp = parseInt(val) || 0;
+    const df = parseInt(defects) || 0;
+    setPartsProduced(String(gp + df));
+  };
+
+  const handleTotalWorkersChange = (val: string) => {
+    setTotalWorkers(val);
+    const tw = parseInt(val) || 0;
+    const ab = parseInt(workersAbsent) || 0;
+    setWorkersPresent(String(Math.max(0, tw - ab)));
+  };
+
+  const handlePresentChange = (val: string) => {
+    setWorkersPresent(val);
+    const pr = parseInt(val) || 0;
+    const ab = parseInt(workersAbsent) || 0;
+    setTotalWorkers(String(pr + ab));
+  };
+
+  const handleAbsentChange = (val: string) => {
+    setWorkersAbsent(val);
+    const pr = parseInt(workersPresent) || 0;
+    const ab = parseInt(val) || 0;
+    setTotalWorkers(String(pr + ab));
+  };
+
   const handleSubmitSuggestion = async () => {
     if (!suggestion.trim()) return;
     setSuggestionSaving(true);
     try {
       await apiPost('/api/machine-suggestions', {
-        machineNumber,
+        machineNumber: selectedMachine,
         message: suggestion,
       });
       setToast({ type: 'success', message: 'Suggestion submitted!' });
@@ -172,7 +253,7 @@ export default function ManagerDashboardPage() {
     setUploadStep('uploading');
     try {
       const result = await apiPost('/api/production-reports', {
-        machineNumber,
+        machineNumber: selectedMachine,
         records: uploadRows,
       });
       setUploadResult(result);
@@ -237,7 +318,7 @@ export default function ManagerDashboardPage() {
               </h1>
               <div className="flex items-center gap-2 mt-2">
                 <Cpu className="w-5 h-5 text-blue-200" />
-                <span className="text-lg font-bold">Machine {machineNumber}</span>
+                <span className="text-lg font-bold">Machine {selectedMachine}</span>
               </div>
               <p className="text-white/50 text-xs mt-1">
                 {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -249,8 +330,6 @@ export default function ManagerDashboardPage() {
           </div>
         </div>
 
-
-
         {/* Main Grid: Left (Production + Energy), Right (Upload + Suggestion) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Production & Energy Entry */}
@@ -260,54 +339,62 @@ export default function ManagerDashboardPage() {
                 <TrendingUp className="w-5 h-5 text-primary" />
                 <h2 className="text-base font-bold text-foreground">Record Today's Data</h2>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Row 1 */}
                 <div className="space-y-1.5">
-                  <Label>Parts Produced</Label>
-                  <Input type="number" min="0" placeholder="e.g. 500" value={partsProduced} onChange={(e) => setPartsProduced(e.target.value)} />
+                  <Label>Machine</Label>
+                  <select
+                    value={selectedMachine}
+                    onChange={(e) => setSelectedMachine(Number(e.target.value))}
+                    className="flex h-10 w-full rounded-md border border-border bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {Array.from({ length: 10 }, (_, i) => (
+                      <option key={i + 1} value={i + 1}>
+                        Machine {i + 1}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Defects / Rejects</Label>
-                  <Input type="number" min="0" placeholder="e.g. 5" value={defects} onChange={(e) => setDefects(e.target.value)} />
+                  <Label>Manager Name</Label>
+                  <Input type="text" placeholder="Manager Name" value={managerName} onChange={(e) => setManagerName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Energy (kWh)</Label>
+                  <Label>kWh (Energy)</Label>
                   <Input type="number" min="0" step="0.1" placeholder="e.g. 120.5" value={energyKwh} onChange={(e) => setEnergyKwh(e.target.value)} />
                 </div>
+
+                {/* Row 2 */}
                 <div className="space-y-1.5">
-                  <Label>Current (Amps)</Label>
-                  <Input type="number" min="0" step="0.1" placeholder="e.g. 15.2" value={currentAmps} onChange={(e) => setCurrentAmps(e.target.value)} />
+                  <Label>Total Parts</Label>
+                  <Input type="number" min="0" placeholder="e.g. 500" value={partsProduced} onChange={(e) => handleTotalPartsChange(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Workers Present</Label>
-                  <Input type="number" min="0" placeholder="e.g. 5" value={workersPresent} onChange={(e) => setWorkersPresent(e.target.value)} />
+                  <Label>Good Products</Label>
+                  <Input type="number" min="0" placeholder="e.g. 495" value={goodProducts} onChange={(e) => handleGoodProductsChange(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Workers Absent</Label>
-                  <Input type="number" min="0" placeholder="e.g. 1" value={workersAbsent} onChange={(e) => setWorkersAbsent(e.target.value)} />
+                  <Label>Defect</Label>
+                  <Input type="number" min="0" placeholder="e.g. 5" value={defects} onChange={(e) => handleDefectsChange(e.target.value)} />
+                </div>
+
+                {/* Row 3 */}
+                <div className="space-y-1.5">
+                  <Label>Total Workers</Label>
+                  <Input type="number" min="0" placeholder="e.g. 6" value={totalWorkers} onChange={(e) => handleTotalWorkersChange(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Tomorrow's Target</Label>
-                  <Input type="number" min="0" placeholder="e.g. 600" value={tomorrowTarget} onChange={(e) => setTomorrowTarget(e.target.value)} />
+                  <Label>Present</Label>
+                  <Input type="number" min="0" placeholder="e.g. 5" value={workersPresent} onChange={(e) => handlePresentChange(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Absent</Label>
+                  <Input type="number" min="0" placeholder="e.g. 1" value={workersAbsent} onChange={(e) => handleAbsentChange(e.target.value)} />
                 </div>
               </div>
 
-              {/* Real-time calculated feedback */}
-              <div className="mt-4 p-3.5 bg-slate-50 border border-slate-200/60 rounded-xl grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-xs text-muted-foreground block font-medium">Good Products (Calculated)</span>
-                  <span className="text-base font-bold text-green-600">
-                    {Math.max(0, (parseInt(partsProduced) || 0) - (parseInt(defects) || 0))} units
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block font-medium">Total Workers (Calculated)</span>
-                  <span className="text-base font-bold text-foreground">
-                    {(parseInt(workersPresent) || 0) + (parseInt(workersAbsent) || 0)} members
-                  </span>
-                </div>
-              </div>
-
-              <Button onClick={handleSaveProduction} disabled={saving} className="w-full mt-4 bg-primary hover:bg-primary/90 text-white">
+              <Button onClick={handleSaveProduction} disabled={saving} className="w-full mt-6 bg-primary hover:bg-primary/90 text-white">
                 {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : <><Save className="w-4 h-4 mr-2" /> Save All Data</>}
               </Button>
               {machineData?.updatedAt && (
