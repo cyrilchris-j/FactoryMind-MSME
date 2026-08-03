@@ -170,7 +170,7 @@ export default function ManagersPage() {
       <div className="space-y-6">
         {/* Toast */}
         {toast && (
-          <div className={`fixed top-5 right-5 z-[100] flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-sm font-medium transition-all ${
+          <div className={`fixed top-5 right-5 z-100 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-sm font-medium transition-all ${
             toast.type === 'success'
               ? 'bg-green-50 border border-green-200 text-green-800'
               : 'bg-red-50 border border-red-200 text-red-800'

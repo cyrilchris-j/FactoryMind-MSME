@@ -255,7 +255,7 @@ export default function ReportsPage() {
           </div>
 
           {/* Animated Tab Content Panes */}
-          <div className="min-h-[110px]">
+          <div className="min-h-27.5">
             <AnimatePresence mode="wait">
               {filterMode === 'date' && (
                 <motion.div
@@ -334,7 +334,7 @@ export default function ReportsPage() {
                   className="space-y-4"
                 >
                   {/* Year selector header */}
-                  <div className="flex items-center justify-between max-w-[200px] mx-auto bg-slate-100 p-1 rounded-lg border border-slate-200/50">
+                  <div className="flex items-center justify-between max-w-50 mx-auto bg-slate-100 p-1 rounded-lg border border-slate-200/50">
                     <button
                       onClick={() => setMonthPickerYear(prev => prev - 1)}
                       className="p-1 hover:bg-white hover:shadow-sm rounded-md transition-all text-muted hover:text-foreground cursor-pointer"
