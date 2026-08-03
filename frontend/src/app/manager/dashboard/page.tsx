@@ -14,12 +14,12 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/components/auth/auth-provider';
 import { apiGet, apiPost } from '@/lib/api';
 
-const REPORT_TEMPLATE_COLUMNS = ['date', 'parts_produced', 'defects', 'energy_kwh', 'current_amps', 'workers_present', 'workers_absent', 'tomorrow_target', 'notes'];
+const REPORT_TEMPLATE_COLUMNS = ['date', 'parts_produced', 'defects', 'energy_kwh', 'workers_present', 'workers_absent', 'notes'];
 
 function downloadReportTemplate() {
   const headers = REPORT_TEMPLATE_COLUMNS.join(',');
   const today = new Date().toISOString().split('T')[0];
-  const example = [today, '500', '5', '120.5', '15.2', '44', '2', '600', 'Routine production'].join(',');
+  const example = [today, '500', '5', '120.5', '5', '1', 'Routine production'].join(',');
   const csv = [headers, example].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
@@ -225,10 +225,10 @@ export default function ManagerDashboardPage() {
         parts_produced: Number(r.parts_produced || r.partsProduced || 0),
         defects: Number(r.defects || 0),
         energy_kwh: Number(r.energy_kwh || r.energyKwh || 0),
-        current_amps: Number(r.current_amps || r.currentAmps || 0),
+        current_amps: 0,
         workers_present: Number(r.workers_present || r.workersPresent || 0),
         workers_absent: Number(r.workers_absent || r.workersAbsent || 0),
-        tomorrow_target: Number(r.tomorrow_target || r.tomorrowTarget || 0),
+        tomorrow_target: 0,
         notes: r.notes || '',
         _row: i + 2,
       }));
@@ -340,7 +340,7 @@ export default function ManagerDashboardPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Manager Name</Label>
-                  <Input type="text" placeholder="Manager Name" value={managerName} onChange={(e) => setManagerName(e.target.value)} />
+                  <Input type="text" value={managerName} disabled className="bg-slate-50 cursor-not-allowed text-muted" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>kWh (Energy)</Label>
@@ -418,10 +418,8 @@ export default function ManagerDashboardPage() {
                           <th className="text-right p-2">Parts</th>
                           <th className="text-right p-2">Defects</th>
                           <th className="text-right p-2">kWh</th>
-                          <th className="text-right p-2">Amps</th>
                           <th className="text-right p-2">Present</th>
                           <th className="text-right p-2">Absent</th>
-                          <th className="text-right p-2">Target</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -431,10 +429,8 @@ export default function ManagerDashboardPage() {
                             <td className="p-2 text-right">{r.parts_produced}</td>
                             <td className="p-2 text-right">{r.defects}</td>
                             <td className="p-2 text-right">{r.energy_kwh}</td>
-                            <td className="p-2 text-right">{r.current_amps}</td>
                             <td className="p-2 text-right">{r.workers_present}</td>
                             <td className="p-2 text-right">{r.workers_absent}</td>
-                            <td className="p-2 text-right">{r.tomorrow_target}</td>
                           </tr>
                         ))}
                       </tbody>
