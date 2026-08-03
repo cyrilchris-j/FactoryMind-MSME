@@ -180,15 +180,15 @@ export default function ManagerDashboardPage() {
   const handleGoodProductsChange = (val: string) => {
     setGoodProducts(val);
     const gp = parseInt(val) || 0;
-    const df = parseInt(defects) || 0;
-    setPartsProduced(String(gp + df));
+    const pts = parseInt(partsProduced) || 0;
+    setDefects(String(Math.max(0, pts - gp)));
   };
 
   const handleTotalWorkersChange = (val: string) => {
     setTotalWorkers(val);
     const tw = parseInt(val) || 0;
-    const ab = parseInt(workersAbsent) || 0;
-    setWorkersPresent(String(Math.max(0, tw - ab)));
+    const pr = parseInt(workersPresent) || 0;
+    setWorkersAbsent(String(Math.max(0, tw - pr)));
   };
 
   const handlePresentChange = (val: string) => {
