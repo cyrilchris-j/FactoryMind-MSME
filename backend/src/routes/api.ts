@@ -1425,6 +1425,34 @@ router.get('/machine-production/today', async (req: AuthRequest, res: Response) 
   res.json({ data: records })
 })
 
+router.get('/machine-production', async (req: AuthRequest, res: Response) => {
+  const { machineNumber, limit = '200' } = req.query
+  try {
+    let query: any = adminDb.collection('machine_daily_production')
+      .where('factoryId', '==', req.factoryId!)
+    
+    if (machineNumber) {
+      query = query.where('machineNumber', '==', Number(machineNumber))
+    } else if (req.role === 'MANAGER') {
+      const userDoc = await adminDb.collection('users').doc(req.uid!).get()
+      const userData = userDoc.data()
+      if (userData && userData.machineNumber) {
+        query = query.where('machineNumber', '==', Number(userData.machineNumber))
+      }
+    }
+    
+    const snap = await query.get()
+    const records = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+    records.sort((a: any, b: any) => b.date.localeCompare(a.date))
+    
+    const lim = parseInt(limit as string) || 200
+    res.json({ data: records.slice(0, lim) })
+  } catch (err) {
+    console.error('Failed to fetch machine production history:', err)
+    res.status(500).json({ error: 'Failed to fetch machine production data' })
+  }
+})
+
 router.post('/machine-production', async (req: AuthRequest, res: Response) => {
   const { machineNumber, partsProduced, defects, energyKwh, currentAmps, workersPresent, workersAbsent, shift, tomorrowTarget } = req.body
   if (!machineNumber || machineNumber < 1 || machineNumber > 10) {

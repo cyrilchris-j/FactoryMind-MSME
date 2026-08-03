@@ -13,13 +13,16 @@ import { useAuth } from '@/components/auth/auth-provider';
 interface HistoryRecord {
   id: string;
   date: string;
-  product_name: string;
-  target_quantity: number;
-  actual_quantity: number;
-  rejected_quantity: number;
-  downtime_minutes: number;
+  machine_number: number;
+  manager_name: string;
+  parts_produced: number;
+  defects: number;
+  energy_kwh: number;
+  workers_present: number;
+  workers_absent: number;
+  good_products: number;
+  total_workers: number;
   created_at: string;
-  machine_code: string;
 }
 
 export default function HistoryPage() {
@@ -32,19 +35,28 @@ export default function HistoryPage() {
     const fetchHistory = async () => {
       setLoading(true);
       try {
-        const res: any = await apiGet('/api/production?limit=200');
+        const res: any = await apiGet('/api/machine-production?limit=200');
         const data = res.data ?? [];
-        const formatted = data.map((d: any) => ({
-          id: d.id,
-          date: d.date,
-          product_name: d.productName || '',
-          target_quantity: d.targetQuantity || 0,
-          actual_quantity: d.actualQuantity || 0,
-          rejected_quantity: d.rejectedQuantity || 0,
-          downtime_minutes: d.downtimeMinutes || 0,
-          created_at: d.createdAt || d.date,
-          machine_code: d.machineCode || 'Unknown',
-        }));
+        const formatted = data.map((d: any) => {
+          const partsVal = d.partsProduced || 0;
+          const defectVal = d.defects || 0;
+          const presentVal = d.workersPresent || 0;
+          const absentVal = d.workersAbsent || 0;
+          return {
+            id: d.id,
+            date: d.date,
+            machine_number: d.machineNumber || 0,
+            manager_name: d.managerName || 'Unknown',
+            parts_produced: partsVal,
+            defects: defectVal,
+            energy_kwh: d.energyKwh || 0,
+            workers_present: presentVal,
+            workers_absent: absentVal,
+            good_products: Math.max(0, partsVal - defectVal),
+            total_workers: presentVal + absentVal,
+            created_at: d.createdAt || d.date,
+          };
+        });
 
         setAllRecords(formatted);
       } catch (err) {
@@ -59,7 +71,8 @@ export default function HistoryPage() {
   const records = useMemo(() => {
     if (!search) return allRecords;
     return allRecords.filter(r =>
-      r.product_name.toLowerCase().includes(search.toLowerCase())
+      r.manager_name.toLowerCase().includes(search.toLowerCase()) ||
+      String(r.machine_number).includes(search)
     );
   }, [allRecords, search]);
 
@@ -68,12 +81,15 @@ export default function HistoryPage() {
     const XLSX = await import('xlsx');
     const dataToExport = records.map(r => ({
       Date: r.date,
-      Machine: r.machine_code,
-      Product: r.product_name,
-      'Target Qty': r.target_quantity,
-      'Actual Qty': r.actual_quantity,
-      Rejects: r.rejected_quantity,
-      'Downtime (mins)': r.downtime_minutes,
+      Machine: `Machine ${r.machine_number}`,
+      Manager: r.manager_name,
+      'Total Parts': r.parts_produced,
+      'Good Products': r.good_products,
+      Defects: r.defects,
+      'Total Workers': r.total_workers,
+      'Present Workers': r.workers_present,
+      'Absent Workers': r.workers_absent,
+      'Energy (kWh)': r.energy_kwh,
       'Submitted At': new Date(r.created_at).toLocaleString()
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -94,7 +110,7 @@ export default function HistoryPage() {
             </Link>
             <div>
               <h1 className="text-2xl font-bold text-foreground">Submission History</h1>
-              <p className="text-sm text-muted">View past records for {user?.department || 'Production'}</p>
+              <p className="text-sm text-muted">View past records for Machine {user?.machineNumber || 'N/A'}</p>
             </div>
           </div>
           <Button variant="outline" onClick={handleExport} disabled={records.length === 0} className="border-border">
@@ -108,7 +124,7 @@ export default function HistoryPage() {
             <div className="relative w-full sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted w-4 h-4" />
               <Input
-                placeholder="Search products..."
+                placeholder="Search by manager name..."
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -122,45 +138,44 @@ export default function HistoryPage() {
                 <tr>
                   <th className="py-3 px-4 font-medium text-muted">Date</th>
                   <th className="py-3 px-4 font-medium text-muted">Machine</th>
-                  <th className="py-3 px-4 font-medium text-muted">Product</th>
-                  <th className="py-3 px-4 font-medium text-muted text-right">Target</th>
-                  <th className="py-3 px-4 font-medium text-muted text-right">Actual</th>
-                  <th className="py-3 px-4 font-medium text-muted text-right">Rejects</th>
-                  <th className="py-3 px-4 font-medium text-muted text-right">Downtime</th>
-                  <th className="py-3 px-4 font-medium text-muted">Status</th>
+                  <th className="py-3 px-4 font-medium text-muted">Manager</th>
+                  <th className="py-3 px-4 font-medium text-muted text-right">Parts</th>
+                  <th className="py-3 px-4 font-medium text-muted text-right">Good Products</th>
+                  <th className="py-3 px-4 font-medium text-muted text-right">Defects</th>
+                  <th className="py-3 px-4 font-medium text-muted text-right">Total Workers</th>
+                  <th className="py-3 px-4 font-medium text-muted text-right">Present</th>
+                  <th className="py-3 px-4 font-medium text-muted text-right">Absent</th>
+                  <th className="py-3 px-4 font-medium text-muted text-right">kWh</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="py-10 text-center text-muted">
+                    <td colSpan={10} className="py-10 text-center text-muted">
                       <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                       Loading history...
                     </td>
                   </tr>
                 ) : records.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-10 text-center text-muted">
+                    <td colSpan={10} className="py-10 text-center text-muted">
                       No records found matching your criteria.
                     </td>
                   </tr>
                 ) : (
                   records.map((r) => {
-                    const pct = r.target_quantity > 0 ? (r.actual_quantity / r.target_quantity) * 100 : 0;
                     return (
                       <tr key={r.id} className="border-b border-border hover:bg-background">
                         <td className="py-3 px-4 text-foreground whitespace-nowrap">{r.date}</td>
-                        <td className="py-3 px-4 text-foreground font-medium">{r.machine_code}</td>
-                        <td className="py-3 px-4 text-foreground">{r.product_name}</td>
-                        <td className="py-3 px-4 text-right text-muted">{r.target_quantity.toLocaleString()}</td>
-                        <td className="py-3 px-4 text-right font-medium text-foreground">{r.actual_quantity.toLocaleString()}</td>
-                        <td className="py-3 px-4 text-right text-danger">{r.rejected_quantity}</td>
-                        <td className="py-3 px-4 text-right text-muted">{r.downtime_minutes}m</td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded text-[10px] font-medium ${pct >= 100 ? 'bg-green-100 text-green-700' : pct >= 80 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-                            {pct >= 100 ? 'Achieved' : pct >= 80 ? 'Near Target' : 'Under Target'}
-                          </span>
-                        </td>
+                        <td className="py-3 px-4 text-foreground font-medium whitespace-nowrap">Machine {r.machine_number}</td>
+                        <td className="py-3 px-4 text-foreground whitespace-nowrap">{r.manager_name}</td>
+                        <td className="py-3 px-4 text-right font-numbers">{r.parts_produced.toLocaleString()}</td>
+                        <td className="py-3 px-4 text-right font-numbers text-green-600 font-medium">{r.good_products.toLocaleString()}</td>
+                        <td className="py-3 px-4 text-right font-numbers text-danger">{r.defects}</td>
+                        <td className="py-3 px-4 text-right font-numbers">{r.total_workers}</td>
+                        <td className="py-3 px-4 text-right font-numbers">{r.workers_present}</td>
+                        <td className="py-3 px-4 text-right font-numbers">{r.workers_absent}</td>
+                        <td className="py-3 px-4 text-right font-numbers text-primary font-medium">{r.energy_kwh} kWh</td>
                       </tr>
                     );
                   })
