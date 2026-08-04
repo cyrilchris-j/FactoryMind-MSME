@@ -270,21 +270,26 @@ export default function OwnerDashboard() {
               <table className="w-full text-sm">
                 <thead className="bg-background border-b border-border">
                   <tr>
+                    <th className="text-left py-3 px-4 text-xs font-medium text-muted">Date</th>
                     <th className="text-left py-3 px-4 text-xs font-medium text-muted">Machine</th>
                     <th className="text-left py-3 px-4 text-xs font-medium text-muted">Manager</th>
                     <th className="text-right py-3 px-4 text-xs font-medium text-muted">Parts</th>
+                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Good Products</th>
                     <th className="text-right py-3 px-4 text-xs font-medium text-muted">Defects</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Defect %</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Good</th>
+                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Total Workers</th>
+                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Present</th>
+                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Absent</th>
                     <th className="text-right py-3 px-4 text-xs font-medium text-muted">kWh</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Amps</th>
                   </tr>
                 </thead>
                 <tbody>
                   {machinesData.map((m: any) => {
-                    const defectPct = m.partsProduced > 0 ? ((m.defects / m.partsProduced) * 100).toFixed(1) : '0.0';
+                    const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                    const goodProduct = Math.max(0, (m.partsProduced || 0) - (m.defects || 0));
+                    const totalMembers = (m.workersPresent || 0) + (m.workersAbsent || 0);
                     return (
                       <tr key={m.machineNumber} className="border-b border-border last:border-0 hover:bg-background">
+                        <td className="py-3 px-4 text-muted">{today}</td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
                             <Cpu className={`w-4 h-4 ${m.managerName !== 'Unassigned' ? 'text-blue-500' : 'text-gray-300'}`} />
@@ -299,12 +304,13 @@ export default function OwnerDashboard() {
                             </span>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-right font-numbers">{m.partsProduced}</td>
-                        <td className={`py-3 px-4 text-right font-numbers ${parseFloat(defectPct) > 5 ? 'text-red-600 font-bold' : 'text-muted'}`}>{m.defects}</td>
-                        <td className={`py-3 px-4 text-right font-numbers ${parseFloat(defectPct) > 5 ? 'text-red-600 font-bold' : 'text-muted'}`}>{defectPct}%</td>
-                        <td className="py-3 px-4 text-right font-numbers text-green-600">{(m.partsProduced || 0) - (m.defects || 0)}</td>
-                        <td className="py-3 px-4 text-right font-numbers text-muted">{m.energyKwh || '-'}</td>
-                        <td className="py-3 px-4 text-right font-numbers text-muted">{m.currentAmps || '-'}</td>
+                        <td className="py-3 px-4 text-right font-numbers">{m.partsProduced || 0}</td>
+                        <td className="py-3 px-4 text-right font-numbers text-green-600 font-semibold">{goodProduct}</td>
+                        <td className={`py-3 px-4 text-right font-numbers ${m.defects > 0 ? 'text-red-500 font-medium' : 'text-muted'}`}>{m.defects || 0}</td>
+                        <td className="py-3 px-4 text-right font-numbers text-foreground">{totalMembers}</td>
+                        <td className="py-3 px-4 text-right font-numbers text-green-600 font-medium">{m.workersPresent || 0}</td>
+                        <td className="py-3 px-4 text-right font-numbers text-red-500">{m.workersAbsent || 0}</td>
+                        <td className="py-3 px-4 text-right font-numbers text-amber-600 font-medium">{m.energyKwh || 0}</td>
                       </tr>
                     );
                   })}
