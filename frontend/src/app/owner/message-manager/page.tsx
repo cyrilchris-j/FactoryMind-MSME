@@ -92,7 +92,7 @@ export default function MessageManagerPage() {
                   <option value="">-- Choose a Manager --</option>
                   {managers.map(m => (
                     <option key={m.id} value={m.id}>
-                      {m.name} {m.machineNumber ? `(Machine ${m.machineNumber})` : '(Unassigned)'}
+                      {m.name} {m.machineNumber ? `(Machine ${m.machineNumber})` : ''}
                     </option>
                   ))}
                 </select>

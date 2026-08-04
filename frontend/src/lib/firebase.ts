@@ -9,7 +9,7 @@ const firebaseConfig = {
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'factorymind-msme',
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'factorymind-msme.firebasestorage.app',
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '1092891299359',
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:1092891299359:web:02fb9d294f6100d7fa4f2a',
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:1092891299359:web:0f51f5437c11d93afa4f2a',
 }
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]

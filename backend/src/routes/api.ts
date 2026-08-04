@@ -176,7 +176,7 @@ router.post('/managers', async (req: AuthRequest, res: Response) => {
     if (err.code === 'auth/email-already-exists') {
       res.status(400).json({ error: 'Email already exists' })
     } else {
-      res.status(500).json({ error: 'Failed to create manager' })
+      res.status(400).json({ error: err.message || 'Failed to create manager' })
     }
   }
 })

@@ -295,7 +295,7 @@ export default function OwnerDashboard() {
                           <div className="flex items-center gap-2">
                             <UserCircle className={`w-4 h-4 ${m.managerName !== 'Unassigned' ? 'text-primary' : 'text-gray-300'}`} />
                             <span className={m.managerName !== 'Unassigned' ? 'text-foreground' : 'text-muted italic'}>
-                              {m.managerName}
+                              {m.managerName === 'Unassigned' ? '-' : m.managerName}
                             </span>
                           </div>
                         </td>

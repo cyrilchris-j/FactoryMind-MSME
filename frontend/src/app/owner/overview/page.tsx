@@ -143,7 +143,7 @@ export default function MachineOverviewPage() {
                         </td>
                         <td className="py-3.5 px-4 text-foreground">
                           {m.managerName === 'Unassigned' ? (
-                            <span className="text-muted italic">Unassigned</span>
+                            <span className="text-muted text-center">-</span>
                           ) : (
                             <span className="font-medium">{m.managerName}</span>
                           )}
