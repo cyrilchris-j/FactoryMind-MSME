@@ -81,6 +81,53 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
   }
 })
 
+router.get('/dashboard-trends', async (req: AuthRequest, res: Response) => {
+  const { factoryId } = req
+  try {
+    const today = new Date()
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(today.getDate() - 6)
+    
+    const startDateStr = sevenDaysAgo.toISOString().split('T')[0]
+    const endDateStr = today.toISOString().split('T')[0]
+
+    const snap = await adminDb.collection('machine_daily_production')
+      .where('factoryId', '==', factoryId!)
+      .get()
+
+    let records = snap.docs.map((d: any) => d.data())
+    records = records.filter((r: any) => r.date >= startDateStr && r.date <= endDateStr)
+    
+    
+    const aggregated: Record<string, { partsProduced: number, defects: number }> = {}
+    
+    for(let i=6; i>=0; i--) {
+        const d = new Date()
+        d.setDate(today.getDate() - i)
+        const dateStr = d.toISOString().split('T')[0]
+        aggregated[dateStr] = { partsProduced: 0, defects: 0 }
+    }
+
+    records.forEach((record: any) => {
+        if (aggregated[record.date]) {
+            aggregated[record.date].partsProduced += (record.partsProduced || 0)
+            aggregated[record.date].defects += (record.defects || 0)
+        }
+    })
+
+    const trends = Object.keys(aggregated).sort().map(date => ({
+        date,
+        partsProduced: aggregated[date].partsProduced,
+        defects: aggregated[date].defects
+    }))
+
+    res.json({ trends })
+  } catch (err) {
+    console.error('Failed to load dashboard trends:', err)
+    res.status(500).json({ error: 'Failed to load dashboard trends' })
+  }
+})
+
 router.get('/factory', async (req: AuthRequest, res: Response) => {
   const doc = await adminDb.collection('factories').doc(req.factoryId!).get()
   res.json(doc.exists ? { id: doc.id, ...doc.data() } : null)

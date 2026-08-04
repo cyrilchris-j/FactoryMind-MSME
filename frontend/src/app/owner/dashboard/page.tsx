@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
 import { apiGet, apiPost } from '@/lib/api';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth/auth-provider';
 
@@ -29,6 +30,8 @@ export default function OwnerDashboard() {
   const [machinesLoading, setMachinesLoading] = useState(true);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const [trendsData, setTrendsData] = useState<any[]>([]);
+  const [trendsLoading, setTrendsLoading] = useState(true);
 
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -67,18 +70,30 @@ export default function OwnerDashboard() {
     setSuggestionsLoading(false);
   }, []);
 
+  const fetchTrendsData = useCallback(async () => {
+    try {
+      const res: any = await apiGet('/api/dashboard-trends');
+      setTrendsData(res.trends ?? []);
+    } catch (err) {
+      console.error('Failed to fetch trends data', err);
+    }
+    setTrendsLoading(false);
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     
     fetchKpis();
     fetchMachinesData();
     fetchSuggestions();
+    fetchTrendsData();
     const interval = setInterval(() => {
       fetchKpis();
       fetchMachinesData();
+      fetchTrendsData();
     }, 30000);
     return () => clearInterval(interval);
-  }, [fetchKpis, fetchMachinesData, fetchSuggestions, user]);
+  }, [fetchKpis, fetchMachinesData, fetchSuggestions, fetchTrendsData, user]);
 
   useEffect(() => {
     if (toast) {
@@ -174,151 +189,104 @@ export default function OwnerDashboard() {
               <Factory className="w-5 h-5 text-primary" />
               <h1 className="text-xl font-bold text-foreground">{kpi?.factoryName || 'Factory Dashboard'}</h1>
             </div>
-            <p className="text-sm text-muted">
-              {kpi?.productName} &bull; {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            <p className="text-sm text-muted mt-1">
+              {kpi?.productName}
             </p>
           </div>
-          <Button onClick={() => setShowAddManager(!showAddManager)} className="bg-primary hover:bg-primary/90 text-white gap-2">
-            <UserPlus className="w-4 h-4" />
-            {showAddManager ? 'Cancel' : 'Add Manager'}
-          </Button>
         </div>
 
-        {/* Add Manager Form */}
-        {showAddManager && (
-          <Card className="p-5 border-primary/30 bg-blue-50/30">
-            <h3 className="text-sm font-bold text-foreground mb-4">Create Manager Account</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Name</Label>
-                <Input placeholder="Manager name" value={newManager.name} onChange={(e) => setNewManager({ ...newManager, name: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Email</Label>
-                <Input type="email" placeholder="email@example.com" value={newManager.email} onChange={(e) => setNewManager({ ...newManager, email: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Password</Label>
-                <Input type="password" placeholder="password" value={newManager.password} onChange={(e) => setNewManager({ ...newManager, password: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Machine (1-10)</Label>
-                <Input type="number" min="1" max="10" placeholder="1-10" value={newManager.machineNumber} onChange={(e) => setNewManager({ ...newManager, machineNumber: e.target.value })} />
-              </div>
-              <div className="flex items-end">
-                <Button onClick={handleCreateManager} disabled={creatingManager} className="bg-green-600 hover:bg-green-700 text-white w-full">
-                  {creatingManager ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</> : 'Create'}
-                </Button>
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 7-Day Production Output */}
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-6">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              <h2 className="text-base font-bold text-foreground">7-Day Production Output</h2>
             </div>
+            {trendsLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendsData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="date" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#6b7280', fontSize: 12 }} 
+                      tickFormatter={(val) => new Date(val).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#6b7280', fontSize: 12 }} 
+                    />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      labelFormatter={(val) => new Date(val).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="partsProduced" 
+                      name="Parts Produced"
+                      stroke="#2563eb" 
+                      strokeWidth={3} 
+                      dot={{ r: 4, strokeWidth: 2 }} 
+                      activeDot={{ r: 6 }} 
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </Card>
-        )}
 
-        {/* Production Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted font-medium uppercase tracking-wide">Target</span>
-              <Target className="w-4 h-4 text-muted" />
+          {/* 7-Day Defect Rates */}
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-6">
+              <Activity className="w-5 h-5 text-red-500" />
+              <h2 className="text-base font-bold text-foreground">7-Day Defect Tracking</h2>
             </div>
-            <p className="text-2xl font-bold font-numbers text-foreground">{kpi?.productionTarget || 0}</p>
-            <p className="text-xs text-muted">assemblies</p>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted font-medium uppercase tracking-wide">Completed</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            </div>
-            <p className="text-2xl font-bold font-numbers text-foreground">{kpi?.completedProduction || 0}</p>
-            <p className="text-xs text-muted">{kpi?.productionAchievement || 0}% of target</p>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted font-medium uppercase tracking-wide">Remaining</span>
-              <Activity className="w-4 h-4 text-amber-500" />
-            </div>
-            <p className="text-2xl font-bold font-numbers text-foreground">{kpi?.remaining || 0}</p>
-            <p className="text-xs text-muted">to produce</p>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted font-medium uppercase tracking-wide">Max Buildable</span>
-              <TrendingUp className="w-4 h-4 text-primary" />
-            </div>
-            <p className="text-2xl font-bold font-numbers text-foreground">{kpi?.maxBuildable || 0}</p>
-            <p className="text-xs text-muted">with current stock</p>
+            {trendsLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={trendsData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="date" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#6b7280', fontSize: 12 }} 
+                      tickFormatter={(val) => new Date(val).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#6b7280', fontSize: 12 }} 
+                    />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      labelFormatter={(val) => new Date(val).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      cursor={{ fill: 'rgba(239, 68, 68, 0.05)' }}
+                    />
+                    <Bar 
+                      dataKey="defects" 
+                      name="Defects"
+                      fill="#ef4444" 
+                      radius={[4, 4, 0, 0]} 
+                      barSize={40}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </Card>
         </div>
-
-        {/* Machine Production Overview */}
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Cpu className="w-5 h-5 text-primary" />
-              <h2 className="text-base font-bold text-foreground">Machine Production Overview</h2>
-            </div>
-            <span className="text-xs text-muted">
-              {machinesData.length > 0 ? `${machinesData.reduce((s: number, m: any) => s + (m.partsProduced || 0), 0)} total parts today` : ''}
-            </span>
-          </div>
-          {machinesLoading ? (
-            <div className="h-32 flex items-center justify-center">
-              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-background border-b border-border">
-                  <tr>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-muted">Date</th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-muted">Machine</th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-muted">Manager</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Parts</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Good Products</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Defects</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Total Workers</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Present</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">Absent</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-muted">kWh</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {machinesData.map((m: any) => {
-                    const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-                    const goodProduct = Math.max(0, (m.partsProduced || 0) - (m.defects || 0));
-                    const totalMembers = (m.workersPresent || 0) + (m.workersAbsent || 0);
-                    return (
-                      <tr key={m.machineNumber} className="border-b border-border last:border-0 hover:bg-background">
-                        <td className="py-3 px-4 text-muted">{today}</td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <Cpu className={`w-4 h-4 ${m.managerName !== 'Unassigned' ? 'text-blue-500' : 'text-gray-300'}`} />
-                            <span className="font-medium text-foreground">Machine {m.machineNumber}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <UserCircle className={`w-4 h-4 ${m.managerName !== 'Unassigned' ? 'text-primary' : 'text-gray-300'}`} />
-                            <span className={m.managerName !== 'Unassigned' ? 'text-foreground' : 'text-muted italic'}>
-                              {m.managerName === 'Unassigned' ? '-' : m.managerName}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-right font-numbers">{m.partsProduced || 0}</td>
-                        <td className="py-3 px-4 text-right font-numbers text-green-600 font-semibold">{goodProduct}</td>
-                        <td className={`py-3 px-4 text-right font-numbers ${m.defects > 0 ? 'text-red-500 font-medium' : 'text-muted'}`}>{m.defects || 0}</td>
-                        <td className="py-3 px-4 text-right font-numbers text-foreground">{totalMembers}</td>
-                        <td className="py-3 px-4 text-right font-numbers text-green-600 font-medium">{m.workersPresent || 0}</td>
-                        <td className="py-3 px-4 text-right font-numbers text-red-500">{m.workersAbsent || 0}</td>
-                        <td className="py-3 px-4 text-right font-numbers text-amber-600 font-medium">{m.energyKwh || 0}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Suggestions */}
