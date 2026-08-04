@@ -267,10 +267,12 @@ export default function ManagersPage() {
                   {manager.full_name}
                 </h3>
                 <div className="flex items-center gap-3 text-sm text-muted mb-4 flex-wrap">
-                  <div className="flex items-center">
-                    <Building2 className="w-3.5 h-3.5 mr-1.5" />
-                    {manager.department} Department
-                  </div>
+                  {manager.department && manager.department !== 'Unassigned' && (
+                    <div className="flex items-center">
+                      <Building2 className="w-3.5 h-3.5 mr-1.5" />
+                      {manager.department} Department
+                    </div>
+                  )}
                   {manager.machineNumber && (
                     <div className="flex items-center">
                       <Cpu className="w-3.5 h-3.5 mr-1.5 text-blue-500" />
