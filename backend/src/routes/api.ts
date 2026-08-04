@@ -523,21 +523,30 @@ router.get('/sales', async (req: AuthRequest, res: Response) => {
 })
 
 router.get('/notifications', async (req: AuthRequest, res: Response) => {
-  const snap = await adminDb.collection('notifications')
-    .where('factoryId', '==', req.factoryId!)
-    .get()
-  let list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
-  
-  // Filter for recipient
-  list = list.filter((n: any) => {
-    if (n.recipientId && n.recipientId !== req.uid) return false;
-    if (n.recipientRole && n.recipientRole !== req.role) return false;
-    return true;
-  })
+  try {
+    if (!req.factoryId) {
+      res.status(400).json({ error: 'factoryId is required' })
+      return
+    }
+    const snap = await adminDb.collection('notifications')
+      .where('factoryId', '==', req.factoryId)
+      .get()
+    let list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+    
+    // Filter for recipient
+    list = list.filter((n: any) => {
+      if (n.recipientId && n.recipientId !== req.uid) return false;
+      if (n.recipientRole && n.recipientRole !== req.role) return false;
+      return true;
+    })
 
-  list.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  list = list.slice(0, 50)
-  res.json(list)
+    list.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    list = list.slice(0, 50)
+    res.json(list)
+  } catch (error: any) {
+    console.error('Error fetching notifications:', error)
+    res.status(500).json({ error: error.message || error.toString() })
+  }
 })
 
 router.post('/messages', async (req: AuthRequest, res: Response) => {

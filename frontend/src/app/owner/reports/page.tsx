@@ -54,8 +54,19 @@ export default function ReportsPage() {
 
   const downloadCSV = () => {
     if (records.length === 0) { alert('No records to download.'); return; }
-    const headers = ['Date', 'Machine', 'Parts Produced', 'Defects', 'Energy (kWh)', 'Current (Amps)', 'Workers Present', 'Workers Absent'];
-    const rows = records.map((r: any) => [r.date, `Machine ${r.machineNumber}`, r.partsProduced, r.defects, r.energyKwh || 0, r.currentAmps || 0, r.workersPresent || 0, r.workersAbsent || 0]);
+    const headers = ['Date', 'Machine', 'Manager Name', 'Total Parts', 'Good Products', 'Defect', 'Total Workers', 'Present', 'Absent', 'kWh'];
+    const rows = records.map((r: any) => [
+      r.date, 
+      `Machine ${r.machineNumber}`, 
+      r.managerName || '-', 
+      r.partsProduced || 0, 
+      Math.max(0, (r.partsProduced || 0) - (r.defects || 0)), 
+      r.defects || 0, 
+      (r.workersPresent || 0) + (r.workersAbsent || 0), 
+      r.workersPresent || 0, 
+      r.workersAbsent || 0, 
+      r.energyKwh || 0
+    ]);
     const csvContent = [headers.join(','), ...rows.map((r: any) => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -443,27 +454,35 @@ export default function ReportsPage() {
                   <tr className="border-b border-border bg-background">
                     <th className="text-left py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Date</th>
                     <th className="text-left py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Machine</th>
-                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Parts Produced</th>
-                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Defects</th>
-                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Energy (kWh)</th>
-                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Current (Amps)</th>
-                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Workers Present</th>
-                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Workers Absent</th>
+                    <th className="text-left py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Manager Name</th>
+                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Total Parts</th>
+                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Good Products</th>
+                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Defect</th>
+                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Total Workers</th>
+                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Present</th>
+                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">Absent</th>
+                    <th className="text-right py-3 px-3 text-xs font-medium text-muted whitespace-nowrap">kWh</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {records.map((r: any, i: number) => (
-                    <tr key={r.id || i} className="border-b border-border last:border-0 hover:bg-background/50">
-                      <td className="py-3 px-3 text-foreground whitespace-nowrap font-numbers">{r.date}</td>
-                      <td className="py-3 px-3"><Cpu className="w-3.5 h-3.5 text-blue-500 inline mr-1" />Machine {r.machineNumber}</td>
-                      <td className="py-3 px-3 text-right font-numbers">{r.partsProduced}</td>
-                      <td className="py-3 px-3 text-right font-numbers">{r.defects}</td>
-                      <td className="py-3 px-3 text-right font-numbers">{r.energyKwh || 0}</td>
-                      <td className="py-3 px-3 text-right font-numbers">{r.currentAmps || 0}</td>
-                      <td className="py-3 px-3 text-right font-numbers">{r.workersPresent || 0}</td>
-                      <td className="py-3 px-3 text-right font-numbers">{r.workersAbsent || 0}</td>
-                    </tr>
-                  ))}
+                  {records.map((r: any, i: number) => {
+                    const goodProduct = Math.max(0, (r.partsProduced || 0) - (r.defects || 0));
+                    const totalMembers = (r.workersPresent || 0) + (r.workersAbsent || 0);
+                    return (
+                      <tr key={r.id || i} className="border-b border-border last:border-0 hover:bg-background/50">
+                        <td className="py-3 px-3 text-foreground whitespace-nowrap font-numbers">{r.date}</td>
+                        <td className="py-3 px-3"><Cpu className="w-3.5 h-3.5 text-blue-500 inline mr-1" />Machine {r.machineNumber}</td>
+                        <td className="py-3 px-3 text-foreground whitespace-nowrap">{r.managerName || '-'}</td>
+                        <td className="py-3 px-3 text-right font-numbers">{r.partsProduced || 0}</td>
+                        <td className="py-3 px-3 text-right font-numbers text-green-600 font-semibold">{goodProduct}</td>
+                        <td className={`py-3 px-3 text-right font-numbers ${r.defects > 0 ? 'text-red-500 font-medium' : 'text-muted'}`}>{r.defects || 0}</td>
+                        <td className="py-3 px-3 text-right font-numbers">{totalMembers}</td>
+                        <td className="py-3 px-3 text-right font-numbers text-green-600">{r.workersPresent || 0}</td>
+                        <td className="py-3 px-3 text-right font-numbers text-red-500">{r.workersAbsent || 0}</td>
+                        <td className="py-3 px-3 text-right font-numbers text-amber-600">{r.energyKwh || 0}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
