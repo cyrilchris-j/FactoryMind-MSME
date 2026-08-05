@@ -1,8 +1,13 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 import { adminDb } from '../lib/firebase-admin'
 
 const genAI = process.env.GEMINI_API_KEY
   ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null
+
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null
 
 async function getTodayProductionContext(factoryId: string) {
@@ -415,7 +420,36 @@ Ensure output is ONLY valid JSON. No markdown backticks.`
       data: parsed,
     }
   } catch (error: any) {
-    console.error('AI Generation Error:', error)
+    console.error('Gemini AI Generation Error, attempting OpenAI fallback:', error.message)
+    
+    if (openai) {
+      try {
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...history.map(msg => ({
+              role: (msg.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+              content: msg.content
+            })),
+            { role: 'user', content: prompt }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.1,
+        })
+        
+        const text = response.choices[0].message.content || '{}'
+        const parsed = JSON.parse(text)
+        return {
+          structured: true,
+          data: parsed,
+        }
+      } catch (fallbackError: any) {
+        console.error('OpenAI Fallback Error:', fallbackError.message)
+        return { error: 'Both Gemini and OpenAI failed to generate a response.' }
+      }
+    }
+
     return { error: 'Failed to generate AI response. ' + error.message }
   }
 }
@@ -451,8 +485,21 @@ ${JSON.stringify(context, null, 2)}`
       })
       const result = await model.generateContent(systemPrompt)
       return { text: result.response.text() }
-    } catch (err) {
-      console.error('Briefing generation failed:', err)
+    } catch (err: any) {
+      console.error('Gemini Briefing generation failed, attempting OpenAI fallback:', err.message)
+      
+      if (openai) {
+        try {
+          const response = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'system', content: systemPrompt }],
+            temperature: 0.2,
+          })
+          return { text: response.choices[0].message.content || '' }
+        } catch (fallbackError: any) {
+          console.error('OpenAI Fallback Error:', fallbackError.message)
+        }
+      }
     }
   }
 
@@ -519,8 +566,21 @@ Past 7 Days:
       })
       const result = await model.generateContent(systemPrompt)
       return { text: result.response.text() }
-    } catch (err) {
-      console.error('Weekly summary generation failed:', err)
+    } catch (err: any) {
+      console.error('Gemini Weekly summary generation failed, attempting OpenAI fallback:', err.message)
+      
+      if (openai) {
+        try {
+          const response = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'system', content: systemPrompt }],
+            temperature: 0.2,
+          })
+          return { text: response.choices[0].message.content || '' }
+        } catch (fallbackError: any) {
+          console.error('OpenAI Fallback Error:', fallbackError.message)
+        }
+      }
     }
   }
 
