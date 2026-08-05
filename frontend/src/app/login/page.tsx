@@ -13,8 +13,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { login, user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState('cyrilchrisj@gmail.com');
-  const [password, setPassword] = useState('MaxVerstappen33');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -159,12 +159,7 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
-              <p className="text-muted text-sm">
-                Don't have an account?{' '}
-                <Link href="/register" className="text-primary font-medium hover:underline">Register your factory</Link>
-              </p>
-            </div>
+
           </div>
 
           <div className="mt-8 text-center text-sm text-muted">
