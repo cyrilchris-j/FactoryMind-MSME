@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Bell, X, CheckCheck, AlertTriangle, Info, CheckCircle, Zap } from 'lucide-react';
+import { Bell, X, Check, AlertTriangle, Info, CheckCircle, Zap } from 'lucide-react';
 import { apiGet, apiPatch } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -152,7 +152,7 @@ export function NotificationDropdown() {
               onClick={markAllRead}
               className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
             >
-              <CheckCheck className="w-3.5 h-3.5" />
+              <Check className="w-3.5 h-3.5" />
               Mark all read
             </button>
           </div>

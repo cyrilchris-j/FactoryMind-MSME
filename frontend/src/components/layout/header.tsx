@@ -81,11 +81,6 @@ export function Header({ factoryName = 'Prime Auto Components', onMobileMenuClic
 
       {/* Right */}
       <div className="flex items-center space-x-2">
-        {/* AI Status */}
-        <div className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 bg-accent/10 rounded-full">
-          <div className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />
-          <span className="text-xs font-medium text-accent">AI Online</span>
-        </div>
 
         {/* Notifications */}
         <NotificationDropdown />
