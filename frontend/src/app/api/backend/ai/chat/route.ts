@@ -1,32 +1,21 @@
 import { NextResponse } from 'next/server';
+import { adminDb } from '@/lib/firebase-admin';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 async function fetchLiveFactoryData() {
-  const projectId = 'factorymind-msme';
   const collections = ['production', 'inventory', 'maintenance', 'machines', 'sales', 'components', 'bill_of_materials', 'customer_orders', 'workers', 'quality_inspections', 'energy'];
   const factoryData: Record<string, any[]> = {};
 
   await Promise.all(
     collections.map(async (col) => {
       try {
-        const res = await fetch(
-          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${col}?pageSize=100`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          factoryData[col] = (data.documents || []).map((doc: any) => {
-            const fields: Record<string, any> = {};
-            for (const [k, v] of Object.entries(doc.fields || {})) {
-              const val = v as any;
-              fields[k] = val.stringValue ?? val.integerValue ?? val.doubleValue ?? val.booleanValue ?? null;
-            }
-            return fields;
-          });
-        } else {
-          factoryData[col] = [];
-        }
-      } catch {
+        const snapshot = await adminDb.collection(col).limit(100).get();
+        factoryData[col] = snapshot.docs.map(doc => {
+          return { id: doc.id, ...doc.data() };
+        });
+      } catch (err) {
+        console.error(`Error fetching collection ${col}:`, err);
         factoryData[col] = [];
       }
     })
