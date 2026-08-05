@@ -147,12 +147,43 @@ async function getWorkforceContext(factoryId: string) {
   const present = data.filter((w: any) => w.status === 'present').length
   const absent = data.filter((w: any) => w.status === 'absent').length
 
+  const departmentBreakdown: any = {}
+  data.forEach((w: any) => {
+    const dept = w.department || 'Unknown'
+    if (!departmentBreakdown[dept]) {
+      departmentBreakdown[dept] = { total: 0, present: 0, absent: 0 }
+    }
+    departmentBreakdown[dept].total++
+    if (w.status === 'present') departmentBreakdown[dept].present++
+    if (w.status === 'absent') departmentBreakdown[dept].absent++
+  })
+
   return {
     date: today,
     totalWorkers: total,
     presentWorkers: present,
     absentWorkers: absent,
     attendanceRate: total > 0 ? ((present / total) * 100).toFixed(1) + '%' : '0%',
+    departmentBreakdown,
+  }
+}
+
+async function getManagersContext(factoryId: string) {
+  const snap = await adminDb.collection('users')
+    .where('factoryId', '==', factoryId)
+    .where('role', '==', 'MANAGER')
+    .get()
+
+  if (snap.empty) return null
+
+  const data = snap.docs.map(d => d.data())
+  return {
+    totalManagers: data.length,
+    managers: data.map((m: any) => ({
+      name: m.name,
+      department: m.department || 'Unknown',
+      machineNumber: m.machineNumber || 'N/A'
+    }))
   }
 }
 
@@ -279,8 +310,16 @@ async function gatherContext(prompt: string, factoryId: string) {
     context.sales = await getSalesContext(factoryId)
   }
 
-  if (lowerPrompt.includes('workforce') || lowerPrompt.includes('worker') || lowerPrompt.includes('attendance') || lowerPrompt.includes('shift') || lowerPrompt.includes('present')) {
+  if (lowerPrompt.includes('workforce') || lowerPrompt.includes('worker') || lowerPrompt.includes('attendance') || lowerPrompt.includes('shift') || lowerPrompt.includes('present') || lowerPrompt.includes('manager')) {
     context.workforce = await getWorkforceContext(factoryId)
+  }
+
+  if (lowerPrompt.includes('manager') || lowerPrompt.includes('supervisor') || lowerPrompt.includes('staff')) {
+    context.managers = await getManagersContext(factoryId)
+    // Always fetch production data if managers are involved to give context on what they did
+    if (!context.production) {
+      context.production = await getTodayProductionContext(factoryId)
+    }
   }
 
   if (lowerPrompt.includes('quality') || lowerPrompt.includes('defect') || lowerPrompt.includes('rejection') || lowerPrompt.includes('inspection') || lowerPrompt.includes('pass') || lowerPrompt.includes('fail')) {
@@ -320,6 +359,7 @@ IMPORTANT RULES:
 - If data is insufficient, state that clearly.
 - For causality, use wording like "likely contributing factors include..." when causality is inferred.
 - Keep explanations practical and actionable for a factory owner.
+- Correlate managers to their respective departments using the 'managers' context, and use this to answer questions about specific managers' attendance or production.
 
 Current Factory Data Context:
 ${JSON.stringify(factoryContext, null, 2)}
